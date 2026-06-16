@@ -7448,6 +7448,41 @@ if (cd "$bad_deploy_placement_key_dir" && "$binary" config >/tmp/apple-compose-b
 fi
 grep -F "Service 'web' deploy.placement.preferences[0] contains unsupported key 'weight'" /tmp/apple-compose-bad-deploy-placement-key.out >/dev/null
 
+deploy_restart_policy_none_dir="$tmpdir/deploy-restart-policy-none"
+mkdir -p "$deploy_restart_policy_none_dir"
+cat > "$deploy_restart_policy_none_dir/compose.yaml" <<'YAML'
+name: deploy_restart_none
+services:
+  web:
+    image: nginx
+    deploy:
+      restart_policy:
+        condition: none
+YAML
+deploy_restart_policy_none_plan="$(cd "$deploy_restart_policy_none_dir" && "$binary" up --dry-run)"
+grep -F "deploy_restart_none-web-1" <<<"$deploy_restart_policy_none_plan" >/dev/null
+if grep -F "[error]" <<<"$deploy_restart_policy_none_plan" >/dev/null; then
+  echo "expected deploy.restart_policy.condition none to be accepted as a no-op" >&2
+  exit 1
+fi
+
+bad_deploy_restart_policy_active_dir="$tmpdir/bad-deploy-restart-policy-active"
+mkdir -p "$bad_deploy_restart_policy_active_dir"
+cat > "$bad_deploy_restart_policy_active_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    deploy:
+      restart_policy:
+        condition: on-failure
+YAML
+if (cd "$bad_deploy_restart_policy_active_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-deploy-restart-policy-active.out 2>&1); then
+  echo "expected active deploy restart policies to be rejected" >&2
+  exit 1
+fi
+grep -F "services.web.deploy.restart_policy: condition" /tmp/apple-compose-bad-deploy-restart-policy-active.out >/dev/null
+grep -F "Active restart policies are not exposed" /tmp/apple-compose-bad-deploy-restart-policy-active.out >/dev/null
+
 bad_deploy_restart_policy_shape_dir="$tmpdir/bad-deploy-restart-policy-shape"
 mkdir -p "$bad_deploy_restart_policy_shape_dir"
 cat > "$bad_deploy_restart_policy_shape_dir/compose.yaml" <<'YAML'

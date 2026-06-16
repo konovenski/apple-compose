@@ -429,7 +429,7 @@ public struct CompatibilityAnalyzer {
         issues += analyzeNestedServiceMaps(service, location: location)
 
         if let deploy = map["deploy"]?.map {
-            let supportedDeployKeys: Set<String> = ["labels", "mode", "replicas", "resources"]
+            let supportedDeployKeys: Set<String> = ["labels", "mode", "replicas", "resources", "restart_policy"]
             for key in deploy.keys where !supportedDeployKeys.contains(key) && !key.hasPrefix("x-") {
                 issues.append(.init(.error, "\(location).deploy", key, "Apple containers are not a Swarm orchestrator, so this deploy setting cannot be applied."))
             }
@@ -438,6 +438,9 @@ public struct CompatibilityAnalyzer {
             }
             if let mode = deploy["mode"]?.string, mode != "replicated" {
                 issues.append(.init(.error, "\(location).deploy", "mode", "Only the default replicated deploy mode can be mapped to local Apple containers. Mode '\(mode)' requires orchestrator semantics."))
+            }
+            if let restartPolicy = deploy["restart_policy"]?.map {
+                issues += analyzeDeployRestartPolicy(restartPolicy, location: "\(location).deploy.restart_policy")
             }
             if let resources = deploy["resources"]?.map {
                 for key in resources.keys where !["limits", "reservations"].contains(key) && !key.hasPrefix("x-") {
@@ -727,6 +730,16 @@ public struct CompatibilityAnalyzer {
         }
 
         return issues
+    }
+
+    private func analyzeDeployRestartPolicy(_ restartPolicy: [String: YAMLValue], location: String) -> [CompatibilityIssue] {
+        let condition = exactString(restartPolicy["condition"])?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if condition == "none", restartPolicy.keys.allSatisfy({ $0 == "condition" || $0.hasPrefix("x-") }) {
+            return []
+        }
+        return [
+            .init(.error, location, "condition", "Only deploy.restart_policy.condition: none can be represented as Apple container's default no-restart behavior. Active restart policies are not exposed by Apple container CLI.")
+        ]
     }
 
     private func analyzeSecretGrantOptions(_ grant: ServiceFileGrant, secret: ComposeSecret, location: String) -> [CompatibilityIssue] {
