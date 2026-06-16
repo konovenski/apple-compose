@@ -7659,6 +7659,50 @@ if (cd "$bad_deploy_update_config_duration_dir" && "$binary" config >/tmp/apple-
 fi
 grep -F "deploy.update_config.monitor must be a valid Compose duration" /tmp/apple-compose-bad-deploy-update-config-duration.out >/dev/null
 
+deploy_limit_pids_noop_dir="$tmpdir/deploy-limit-pids-noop"
+mkdir -p "$deploy_limit_pids_noop_dir"
+cat > "$deploy_limit_pids_noop_dir/compose.yaml" <<'YAML'
+name: deploy_limit_pids_noop
+services:
+  defaulted:
+    image: nginx
+    deploy:
+      resources:
+        limits:
+          pids: 0
+  unlimited:
+    image: nginx
+    deploy:
+      resources:
+        limits:
+          pids: -1
+YAML
+deploy_limit_pids_noop_plan="$(cd "$deploy_limit_pids_noop_dir" && "$binary" up --dry-run)"
+grep -F "deploy_limit_pids_noop-defaulted-1" <<<"$deploy_limit_pids_noop_plan" >/dev/null
+grep -F "deploy_limit_pids_noop-unlimited-1" <<<"$deploy_limit_pids_noop_plan" >/dev/null
+if grep -F "[error]" <<<"$deploy_limit_pids_noop_plan" >/dev/null; then
+  echo "expected deploy.resources.limits.pids 0 and -1 to be accepted as no-ops" >&2
+  exit 1
+fi
+
+bad_deploy_limit_pids_active_dir="$tmpdir/bad-deploy-limit-pids-active"
+mkdir -p "$bad_deploy_limit_pids_active_dir"
+cat > "$bad_deploy_limit_pids_active_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    deploy:
+      resources:
+        limits:
+          pids: 10
+YAML
+if (cd "$bad_deploy_limit_pids_active_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-deploy-limit-pids-active.out 2>&1); then
+  echo "expected active deploy resource pids limit to be rejected" >&2
+  exit 1
+fi
+grep -F "services.web.deploy.resources.limits: pids" /tmp/apple-compose-bad-deploy-limit-pids-active.out >/dev/null
+grep -F "PID limits are not exposed" /tmp/apple-compose-bad-deploy-limit-pids-active.out >/dev/null
+
 bad_deploy_limit_pids_shape_dir="$tmpdir/bad-deploy-limit-pids-shape"
 mkdir -p "$bad_deploy_limit_pids_shape_dir"
 cat > "$bad_deploy_limit_pids_shape_dir/compose.yaml" <<'YAML'

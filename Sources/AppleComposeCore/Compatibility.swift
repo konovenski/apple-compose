@@ -447,8 +447,11 @@ public struct CompatibilityAnalyzer {
                     issues.append(.init(.error, "\(location).deploy.resources", key, "This deploy resource setting is not defined by the modern Compose deploy specification."))
                 }
                 if let limits = resources["limits"]?.map {
-                    for key in limits.keys where !["cpus", "memory"].contains(key) && !key.hasPrefix("x-") {
+                    for key in limits.keys where !["cpus", "memory", "pids"].contains(key) && !key.hasPrefix("x-") {
                         issues.append(.init(.error, "\(location).deploy.resources.limits", key, "Only CPU and memory limits can be mapped to Apple container flags; Apple container CLI does not expose deploy resource limit '\(key)'."))
+                    }
+                    if let pids = limits["pids"], !isNoopPidsLimit(pids) {
+                        issues.append(.init(.error, "\(location).deploy.resources.limits", "pids", "PID limits are not exposed by Apple container CLI. Compose's explicit 0/default and -1/unlimited values are accepted as default behavior."))
                     }
                     if let serviceCPUs = map["cpus"]?.string,
                        let deployCPUs = limits["cpus"]?.string,
