@@ -1876,9 +1876,10 @@ struct ComposeParser {
         try parseExternalLinks(serviceMap["external_links"], serviceName: serviceName)
         try parseVolumesFrom(serviceMap["volumes_from"], serviceName: serviceName)
         try parseDeviceCgroupRules(serviceMap["device_cgroup_rules"], serviceName: serviceName)
-        for key in ["cgroup_parent", "cpuset", "isolation", "userns_mode"] {
+        for key in ["cgroup_parent", "isolation", "userns_mode"] {
             _ = try parseOptionalString(serviceMap[key], location: "Service '\(serviceName)' \(key)")
         }
+        _ = try parseOptionalString(serviceMap["cpuset"], location: "Service '\(serviceName)' cpuset", allowEmpty: true)
         try parsePIDMode(serviceMap["pid"], serviceName: serviceName)
         try parseIPCMode(serviceMap["ipc"], serviceName: serviceName)
         _ = try parseOptionalEnum(serviceMap["cgroup"], allowed: ["host", "private"], location: "Service '\(serviceName)' cgroup")

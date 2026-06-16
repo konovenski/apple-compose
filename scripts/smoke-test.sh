@@ -1585,12 +1585,25 @@ name: disabled_resource_defaults
 services:
   web:
     image: nginx
+    cpu_percent: 0
+    cpu_shares: 0
+    cpu_period: 0
+    cpu_quota: 0
+    cpu_rt_runtime: 0
+    cpu_rt_period: 0s
+    cpuset: ""
     memswap_limit: 0
     pids_limit: -1.0
     oom_score_adj: 0
 YAML
 disabled_resource_defaults_plan="$(cd "$disabled_resource_defaults_dir" && "$binary" plan)"
 grep -F "disabled_resource_defaults-web-1" <<<"$disabled_resource_defaults_plan" >/dev/null
+for resource_key in cpu_percent cpu_shares cpu_period cpu_quota cpu_rt_runtime cpu_rt_period cpuset; do
+  if grep -F "services.web: $resource_key" <<<"$disabled_resource_defaults_plan" >/dev/null; then
+    echo "expected $resource_key default value to be accepted as default behavior" >&2
+    exit 1
+  fi
+done
 if grep -F "services.web: memswap_limit" <<<"$disabled_resource_defaults_plan" >/dev/null; then
   echo "expected memswap_limit=0 to be accepted as default behavior" >&2
   exit 1

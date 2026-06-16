@@ -384,13 +384,6 @@ public struct CompatibilityAnalyzer {
 
         let unsupportedServiceKeys: [(String, String)] = [
             ("blkio_config", "Block I/O throttling is not exposed by Apple container CLI."),
-            ("cpu_percent", "Apple container CLI exposes --cpus, but not Docker cpu_percent."),
-            ("cpu_shares", "CPU share weighting is not exposed by Apple container CLI."),
-            ("cpu_period", "Linux CFS CPU period is not exposed by Apple container CLI."),
-            ("cpu_quota", "Linux CFS CPU quota is not exposed by Apple container CLI."),
-            ("cpu_rt_runtime", "Linux realtime CPU runtime is not exposed by Apple container CLI."),
-            ("cpu_rt_period", "Linux realtime CPU period is not exposed by Apple container CLI."),
-            ("cpuset", "CPU set pinning is not exposed by Apple container CLI."),
             ("cgroup_parent", "Cgroup parent selection is not exposed by Apple container CLI."),
             ("sysctls", "Linux sysctl injection is not exposed by Apple container CLI."),
             ("devices", "Device passthrough is not exposed by Apple container CLI."),
@@ -420,6 +413,18 @@ public struct CompatibilityAnalyzer {
                 continue
             }
             issues.append(.init(.error, location, key, message))
+        }
+        if let cpuPercent = map["cpu_percent"], !isNumericValue(cpuPercent, equalTo: 0) {
+            issues.append(.init(.error, location, "cpu_percent", "Apple container CLI exposes --cpus, but not Docker cpu_percent. Compose's explicit 0/default value is accepted."))
+        }
+        for key in ["cpu_shares", "cpu_period", "cpu_quota"] where map[key] != nil && !isNumericValue(map[key]!, equalTo: 0) {
+            issues.append(.init(.error, location, key, cpuControlMessage(for: key)))
+        }
+        for key in ["cpu_rt_runtime", "cpu_rt_period"] where map[key] != nil && !isZeroDurationOrMicroseconds(map[key]!) {
+            issues.append(.init(.error, location, key, cpuControlMessage(for: key)))
+        }
+        if let cpuset = map["cpuset"], !isEmptyStringValue(cpuset) {
+            issues.append(.init(.error, location, "cpuset", "CPU set pinning is not exposed by Apple container CLI. Compose's empty/default value is accepted."))
         }
         if let memReservation = map["mem_reservation"], !isByteValue(memReservation, equalTo: 0) {
             issues.append(.init(.error, location, "mem_reservation", "Memory reservation is not exposed by Apple container CLI; only a hard --memory limit can be applied. Compose's explicit 0/default reservation is accepted."))
@@ -992,6 +997,44 @@ public struct CompatibilityAnalyzer {
             return false
         }
         return abs(number - expected) < 0.000_000_001
+    }
+
+    private func isZeroDurationOrMicroseconds(_ value: YAMLValue) -> Bool {
+        guard let raw = value.string?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return false
+        }
+        if let number = Int(raw) {
+            return number == 0
+        }
+        return composeDurationSeconds(raw) == 0
+    }
+
+    private func isEmptyStringValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .string(let string):
+            return string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .reset(let value), .overrideValue(let value):
+            return isEmptyStringValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func cpuControlMessage(for key: String) -> String {
+        switch key {
+        case "cpu_shares":
+            return "CPU share weighting is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."
+        case "cpu_period":
+            return "Linux CFS CPU period is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."
+        case "cpu_quota":
+            return "Linux CFS CPU quota is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."
+        case "cpu_rt_runtime":
+            return "Linux realtime CPU runtime is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."
+        case "cpu_rt_period":
+            return "Linux realtime CPU period is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."
+        default:
+            return "CPU control is not exposed by Apple container CLI. Compose's explicit default value is accepted."
+        }
     }
 
     private func isByteValue(_ value: YAMLValue, equalTo expected: Int64, allowUnlimitedSwap: Bool = false) -> Bool {
