@@ -2744,7 +2744,7 @@ struct ComposeParser {
         }
         if policy.hasPrefix("every_") {
             guard composePullPolicyIntervalSeconds(policy) != nil else {
-                throw ComposeError.invalidCompose("Service '\(serviceName)' pull_policy '\(value)' must use a positive duration with w, d, h, m, or s units")
+                throw ComposeError.invalidCompose("Service '\(serviceName)' pull_policy '\(value)' must use a duration with w, d, h, m, or s units")
             }
             return value
         }
@@ -2756,7 +2756,7 @@ struct ComposeParser {
             return nil
         }
         guard composePullPolicyRefreshAfterSeconds(value) != nil else {
-            throw ComposeError.invalidCompose("Service '\(serviceName)' pull_refresh_after '\(value)' must use a positive duration with w, d, h, m, or s units")
+            throw ComposeError.invalidCompose("Service '\(serviceName)' pull_refresh_after '\(value)' must use a duration with w, d, h, m, or s units")
         }
         return value
     }

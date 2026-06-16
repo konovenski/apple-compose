@@ -142,7 +142,7 @@ private func composePullPolicyDurationSeconds(_ raw: String) -> Int? {
         parsedComponent = true
     }
 
-    guard parsedComponent, total > 0 else {
+    guard parsedComponent else {
         return nil
     }
     return Int(ceil(total))

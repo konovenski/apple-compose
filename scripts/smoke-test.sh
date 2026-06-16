@@ -5679,6 +5679,9 @@ services:
     image: example/api:1.0
     platform: linux/arm64
     pull_policy: every_1w2d3h4m5s
+  immediate:
+    image: example/immediate:1.0
+    pull_policy: every_0s
   refresher:
     image: example/refresher:1.0
     pull_policy: refresh
@@ -5694,6 +5697,7 @@ grep -F ".apple-compose/time_pull/pull-state" /tmp/apple-compose-pull-policy.out
 grep -F "86400 nginx container image pull nginx" /tmp/apple-compose-pull-policy.out >/dev/null
 grep -F "604800 example/worker:1.0 container image pull example/worker:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 grep -F "788645 example/api:1.0 container image pull --platform linux/arm64 example/api:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
+grep -F "0 example/immediate:1.0 container image pull example/immediate:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 grep -F "9000 example/refresher:1.0 container image pull example/refresher:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 
 bad_time_pull_dir="$tmpdir/bad-time-pull-policy"
@@ -5711,7 +5715,7 @@ fi
 
 grep -F "pull_policy" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
 grep -F "every_soon" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
-grep -F "positive duration" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
+grep -F "must use a duration with w, d, h, m, or s units" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
 
 bad_refresh_pull_dir="$tmpdir/bad-refresh-pull-policy"
 mkdir -p "$bad_refresh_pull_dir"
@@ -5741,7 +5745,7 @@ if (cd "$bad_refresh_duration_dir" && "$binary" config >/tmp/apple-compose-bad-r
   exit 1
 fi
 grep -F "pull_refresh_after" /tmp/apple-compose-bad-refresh-duration.out >/dev/null
-grep -F "positive duration" /tmp/apple-compose-bad-refresh-duration.out >/dev/null
+grep -F "must use a duration with w, d, h, m, or s units" /tmp/apple-compose-bad-refresh-duration.out >/dev/null
 
 bad_unknown_pull_dir="$tmpdir/bad-unknown-pull-policy"
 mkdir -p "$bad_unknown_pull_dir"
