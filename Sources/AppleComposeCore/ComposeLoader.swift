@@ -934,9 +934,9 @@ struct ComposeParser {
 
     private func parseBuild(_ node: YAMLValue?, serviceName: String) throws -> BuildSpec? {
         guard let node else { return nil }
-        if node.map == nil, let string = try parseOptionalString(node, location: "Service '\(serviceName)' build") {
+        if node.map == nil, let string = try parseOptionalString(node, location: "Service '\(serviceName)' build", allowEmpty: true) {
             return BuildSpec(
-                context: string,
+                context: string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "." : string,
                 dockerfile: nil,
                 dockerfileInline: nil,
                 args: [:],
@@ -964,23 +964,23 @@ struct ComposeParser {
             ],
             location: "Service '\(serviceName)' build"
         )
-        _ = try parseOptionalString(map["network"], location: "Service '\(serviceName)' build.network")
+        _ = try parseOptionalUnsettableString(map["network"], location: "Service '\(serviceName)' build.network")
         _ = try parseOptionalBoolOrString(map["privileged"], location: "Service '\(serviceName)' build.privileged")
         _ = try parseOptionalBoolOrStringScalar(map["provenance"], location: "Service '\(serviceName)' build.provenance")
         _ = try parseOptionalBoolOrStringScalar(map["sbom"], location: "Service '\(serviceName)' build.sbom")
         try parseUnsupportedBuildShapes(map, serviceName: serviceName)
-        let dockerfile = try parseOptionalString(map["dockerfile"], location: "Service '\(serviceName)' build.dockerfile")
-        let dockerfileInline = try parseOptionalString(map["dockerfile_inline"], location: "Service '\(serviceName)' build.dockerfile_inline", allowEmpty: true)
+        let dockerfile = try parseOptionalUnsettableString(map["dockerfile"], location: "Service '\(serviceName)' build.dockerfile")
+        let dockerfileInline = try parseOptionalUnsettableString(map["dockerfile_inline"], location: "Service '\(serviceName)' build.dockerfile_inline")
         if dockerfile != nil && dockerfileInline != nil {
             throw ComposeError.invalidCompose("Service '\(serviceName)' build must not set both dockerfile and dockerfile_inline")
         }
         return BuildSpec(
-            context: try parseOptionalString(map["context"], location: "Service '\(serviceName)' build.context") ?? ".",
+            context: try parseOptionalUnsettableString(map["context"], location: "Service '\(serviceName)' build.context") ?? ".",
             dockerfile: dockerfile,
             dockerfileInline: dockerfileInline,
             args: try parseEnvironmentMap(map["args"], location: "Service '\(serviceName)' build.args"),
             labels: try parseLabelMap(map["labels"], location: "Service '\(serviceName)' build.labels"),
-            target: try parseOptionalString(map["target"], location: "Service '\(serviceName)' build.target"),
+            target: try parseOptionalUnsettableString(map["target"], location: "Service '\(serviceName)' build.target"),
             platforms: try parsePlatformList(map["platforms"], location: "Service '\(serviceName)' build.platforms"),
             noCache: try parseOptionalBoolOrString(map["no_cache"], location: "Service '\(serviceName)' build.no_cache") ?? false,
             pull: try parseOptionalBoolOrString(map["pull"], location: "Service '\(serviceName)' build.pull") ?? false,
@@ -998,7 +998,7 @@ struct ComposeParser {
         _ = try parseStringList(map["cache_to"], location: "\(location).cache_to")
         _ = try parseStringList(map["entitlements"], location: "\(location).entitlements")
         try parseExtraHosts(map["extra_hosts"], location: "\(location).extra_hosts")
-        _ = try parseOptionalString(map["isolation"], location: "\(location).isolation")
+        _ = try parseOptionalUnsettableString(map["isolation"], location: "\(location).isolation")
         try parseBuildSSH(map["ssh"], location: "\(location).ssh")
     }
 

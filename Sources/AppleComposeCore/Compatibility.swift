@@ -696,7 +696,10 @@ public struct CompatibilityAnalyzer {
             if let sbom = buildMap["sbom"], exactBool(sbom) != false {
                 issues.append(.init(.error, "\(location).build", "sbom", "Build SBOM attestations are not exposed by Apple container build."))
             }
-            if let network = exactString(buildMap["network"]), network.lowercased() != "default" {
+            if let networkValue = buildMap["network"],
+               !isEmptyStringValue(networkValue),
+               let network = exactString(networkValue),
+               network.lowercased() != "default" {
                 issues.append(.init(.error, "\(location).build", "network", "Build network mode is not exposed by Apple container build. Only the default build network can be represented."))
             }
             if build.shmSize != nil {
@@ -719,7 +722,7 @@ public struct CompatibilityAnalyzer {
                 ("ssh", "Build SSH mounts are not exposed by Apple container build 1.0.0.")
             ]
             for (key, message) in unsupportedBuildKeys {
-                guard let value = buildMap[key], !isEmptyNoopValue(value) else {
+                guard let value = buildMap[key], !isEmptyNoopValue(value), !isBuildEmptyStringNoop(key, value) else {
                     continue
                 }
                 issues.append(.init(.error, "\(location).build", key, message))
@@ -727,7 +730,12 @@ public struct CompatibilityAnalyzer {
             for key in buildMap.keys where !knownBuildKeys.contains(key) && !key.hasPrefix("x-") {
                 issues.append(.init(.error, "\(location).build", key, "This Compose build attribute is not implemented by apple-compose and would otherwise be ignored."))
             }
-            if buildMap["dockerfile"] != nil && buildMap["dockerfile_inline"] != nil {
+            if let dockerfile = buildMap["dockerfile"],
+               let dockerfileInline = buildMap["dockerfile_inline"],
+               !isEmptyNoopValue(dockerfile),
+               !isEmptyNoopValue(dockerfileInline),
+               !isEmptyStringValue(dockerfile),
+               !isEmptyStringValue(dockerfileInline) {
                 issues.append(.init(.error, "\(location).build", "dockerfile + dockerfile_inline", "Compose build definitions must not set both dockerfile and dockerfile_inline."))
             }
             if let servicePlatform = service.platform, !build.platforms.isEmpty && !build.platforms.contains(servicePlatform) {
@@ -1027,6 +1035,10 @@ public struct CompatibilityAnalyzer {
         default:
             return false
         }
+    }
+
+    private func isBuildEmptyStringNoop(_ key: String, _ value: YAMLValue) -> Bool {
+        key == "isolation" && isEmptyStringValue(value)
     }
 
     private func cpuControlMessage(for key: String) -> String {

@@ -1735,10 +1735,15 @@ models: {}
 services:
   web:
     build:
-      context: .
+      context: ""
+      dockerfile: ""
+      dockerfile_inline: ""
       additional_contexts: {}
       entitlements: []
       extra_hosts: []
+      isolation: ""
+      network: ""
+      target: ""
       ssh: []
       ulimits: {}
     devices: []
@@ -1775,12 +1780,27 @@ if grep -F "[error]" <<<"$empty_unsupported_plan" >/dev/null; then
   echo "expected empty known-unsupported values to be accepted as no-ops" >&2
   exit 1
 fi
-for empty_flag in "--dns-domain" "--platform" "--runtime" "--user" "--workdir"; do
+for empty_flag in "--dns-domain" "--file" "--platform" "--runtime" "--target" "--user" "--workdir"; do
   if grep -F -- "$empty_flag" <<<"$empty_unsupported_plan" >/dev/null; then
     echo "expected empty service scalar defaults not to emit $empty_flag" >&2
     exit 1
   fi
 done
+
+empty_build_string_dir="$tmpdir/empty-build-string"
+mkdir -p "$empty_build_string_dir"
+cat > "$empty_build_string_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: example/web
+    build: ""
+YAML
+empty_build_string_plan="$(cd "$empty_build_string_dir" && "$binary" plan)"
+grep -F "empty-build-string-web-1" <<<"$empty_build_string_plan" >/dev/null
+if grep -F "[error]" <<<"$empty_build_string_plan" >/dev/null; then
+  echo "expected build empty string to use the default build context" >&2
+  exit 1
+fi
 
 storage_opt_dir="$tmpdir/storage-opt"
 mkdir -p "$storage_opt_dir"
