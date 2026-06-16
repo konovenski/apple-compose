@@ -369,7 +369,7 @@ public struct CompatibilityAnalyzer {
         if let healthcheck = map["healthcheck"], !isDisabledHealthcheck(healthcheck) {
             issues.append(.init(.error, location, "healthcheck", "Apple container CLI has no container healthcheck API; depends_on health conditions cannot be honored. Disabled healthcheck forms are accepted."))
         }
-        if let networkMode = map["network_mode"] {
+        if let networkMode = map["network_mode"], !isEmptyStringValue(networkMode) {
             let mode = networkMode.string?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if map["networks"] != nil {
                 issues.append(.init(.error, location, "network_mode + networks", "Compose forbids setting both network_mode and networks on the same service."))
@@ -409,7 +409,7 @@ public struct CompatibilityAnalyzer {
             ("volumes_from", "Mounting all volumes from another container is not exposed by Apple container CLI.")
         ]
         for (key, message) in unsupportedServiceKeys {
-            guard let value = map[key], !isEmptyNoopValue(value) else {
+            guard let value = map[key], !isEmptyNoopValue(value), !isUnsupportedEmptyStringNoop(key, value) else {
                 continue
             }
             issues.append(.init(.error, location, key, message))
@@ -1014,6 +1014,15 @@ public struct CompatibilityAnalyzer {
         case .string(let string):
             return string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .reset(let value), .overrideValue(let value):
+            return isEmptyStringValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isUnsupportedEmptyStringNoop(_ key: String, _ value: YAMLValue) -> Bool {
+        switch key {
+        case "cgroup", "cgroup_parent", "hostname", "ipc", "isolation", "pid", "userns_mode", "uts":
             return isEmptyStringValue(value)
         default:
             return false

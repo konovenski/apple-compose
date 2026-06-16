@@ -881,10 +881,10 @@ struct ComposeParser {
                 networkMode: networkMode,
                 command: try parseCommand(serviceMap["command"], location: "Service '\(name)' command"),
                 entrypoint: try parseCommand(serviceMap["entrypoint"], location: "Service '\(name)' entrypoint"),
-                workingDir: try parseOptionalString(serviceMap["working_dir"], location: "Service '\(name)' working_dir"),
-                user: try parseOptionalStringOrInt(serviceMap["user"], location: "Service '\(name)' user"),
+                workingDir: try parseOptionalUnsettableString(serviceMap["working_dir"], location: "Service '\(name)' working_dir"),
+                user: try parseOptionalUnsettableStringOrInt(serviceMap["user"], location: "Service '\(name)' user"),
                 platform: try parsePlatform(serviceMap["platform"], location: "Service '\(name)' platform"),
-                runtime: try parseOptionalString(serviceMap["runtime"], location: "Service '\(name)' runtime"),
+                runtime: try parseOptionalUnsettableString(serviceMap["runtime"], location: "Service '\(name)' runtime"),
                 macAddress: macAddress,
                 cpus: serviceCPUs ?? serviceCPUCount ?? deployCPUs,
                 memory: serviceMemory ?? deployMemory,
@@ -1877,13 +1877,18 @@ struct ComposeParser {
         try parseVolumesFrom(serviceMap["volumes_from"], serviceName: serviceName)
         try parseDeviceCgroupRules(serviceMap["device_cgroup_rules"], serviceName: serviceName)
         for key in ["cgroup_parent", "isolation", "userns_mode"] {
-            _ = try parseOptionalString(serviceMap[key], location: "Service '\(serviceName)' \(key)")
+            _ = try parseOptionalUnsettableString(serviceMap[key], location: "Service '\(serviceName)' \(key)")
         }
         _ = try parseOptionalString(serviceMap["cpuset"], location: "Service '\(serviceName)' cpuset", allowEmpty: true)
         try parsePIDMode(serviceMap["pid"], serviceName: serviceName)
         try parseIPCMode(serviceMap["ipc"], serviceName: serviceName)
-        _ = try parseOptionalEnum(serviceMap["cgroup"], allowed: ["host", "private"], location: "Service '\(serviceName)' cgroup")
-        _ = try parseOptionalString(serviceMap["uts"], location: "Service '\(serviceName)' uts")
+        if let cgroup = try parseOptionalUnsettableString(serviceMap["cgroup"], location: "Service '\(serviceName)' cgroup") {
+            let normalized = cgroup.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard ["host", "private"].contains(normalized) else {
+                throw ComposeError.invalidCompose("Service '\(serviceName)' cgroup must be one of: host, private")
+            }
+        }
+        _ = try parseOptionalUnsettableString(serviceMap["uts"], location: "Service '\(serviceName)' uts")
         try parseHostname(serviceMap["hostname"], serviceName: serviceName)
         if let cpuPercent = try parseOptionalInt(serviceMap["cpu_percent"], location: "Service '\(serviceName)' cpu_percent"),
            !(0...100).contains(cpuPercent) {
@@ -2549,7 +2554,7 @@ struct ComposeParser {
     }
 
     private func parseNetworkMode(_ node: YAMLValue?, serviceName: String) throws -> String? {
-        guard let value = try parseOptionalString(node, location: "Service '\(serviceName)' network_mode") else {
+        guard let value = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' network_mode") else {
             return nil
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2568,7 +2573,7 @@ struct ComposeParser {
     }
 
     private func parseIPCMode(_ node: YAMLValue?, serviceName: String) throws {
-        guard let value = try parseOptionalString(node, location: "Service '\(serviceName)' ipc") else {
+        guard let value = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' ipc") else {
             return
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2586,7 +2591,7 @@ struct ComposeParser {
     }
 
     private func parsePIDMode(_ node: YAMLValue?, serviceName: String) throws {
-        guard let value = try parseOptionalString(node, location: "Service '\(serviceName)' pid") else {
+        guard let value = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' pid") else {
             return
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2600,7 +2605,7 @@ struct ComposeParser {
     }
 
     private func parseDomainName(_ node: YAMLValue?, serviceName: String) throws -> String? {
-        guard let domainName = try parseOptionalString(node, location: "Service '\(serviceName)' domainname") else {
+        guard let domainName = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' domainname") else {
             return nil
         }
         guard isValidRFC1123Hostname(domainName) else {
@@ -2610,7 +2615,7 @@ struct ComposeParser {
     }
 
     private func parseHostname(_ node: YAMLValue?, serviceName: String) throws {
-        guard let hostname = try parseOptionalString(node, location: "Service '\(serviceName)' hostname") else {
+        guard let hostname = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' hostname") else {
             return
         }
         guard isValidRFC1123Hostname(hostname) else {
@@ -2619,7 +2624,7 @@ struct ComposeParser {
     }
 
     private func parseMACAddress(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let macAddress = try parseOptionalString(node, location: location) else {
+        guard let macAddress = try parseOptionalUnsettableString(node, location: location) else {
             return nil
         }
         guard isValidMACAddress(macAddress) else {
@@ -2717,7 +2722,7 @@ struct ComposeParser {
     }
 
     private func parsePlatform(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let platform = try parseOptionalString(node, location: location) else {
+        guard let platform = try parseOptionalUnsettableString(node, location: location) else {
             return nil
         }
         guard isValidComposePlatform(platform) else {
@@ -3249,6 +3254,13 @@ struct ComposeParser {
         }
     }
 
+    private func parseOptionalUnsettableString(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalString(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+    }
+
     private func parseOptionalEnum(_ node: YAMLValue?, allowed: Set<String>, location: String) throws -> String? {
         guard let value = try parseOptionalString(node, location: location) else {
             return nil
@@ -3278,6 +3290,13 @@ struct ComposeParser {
         default:
             throw ComposeError.invalidCompose("\(location) must be a string or integer value")
         }
+    }
+
+    private func parseOptionalUnsettableStringOrInt(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalStringOrInt(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
     }
 
     private func parseOptionalPermissionMode(_ node: YAMLValue?, location: String, allowEmpty: Bool = false) throws -> String? {

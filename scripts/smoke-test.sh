@@ -1746,14 +1746,28 @@ services:
     driver_opts: {}
     develop: {}
     blkio_config: {}
+    cgroup: ""
+    cgroup_parent: ""
+    domainname: ""
     external_links: []
     extra_hosts: []
     group_add: []
+    hostname: ""
+    ipc: ""
+    isolation: ""
     links: []
+    mac_address: ""
     models: []
+    network_mode: ""
+    platform: ""
+    runtime: ""
     storage_opt: {}
     sysctls: {}
+    user: ""
+    userns_mode: ""
+    uts: ""
     volumes_from: []
+    working_dir: ""
 YAML
 empty_unsupported_plan="$(cd "$empty_unsupported_dir" && "$binary" plan)"
 grep -F "empty_unsupported-web-1" <<<"$empty_unsupported_plan" >/dev/null
@@ -1761,6 +1775,12 @@ if grep -F "[error]" <<<"$empty_unsupported_plan" >/dev/null; then
   echo "expected empty known-unsupported values to be accepted as no-ops" >&2
   exit 1
 fi
+for empty_flag in "--dns-domain" "--platform" "--runtime" "--user" "--workdir"; do
+  if grep -F -- "$empty_flag" <<<"$empty_unsupported_plan" >/dev/null; then
+    echo "expected empty service scalar defaults not to emit $empty_flag" >&2
+    exit 1
+  fi
+done
 
 storage_opt_dir="$tmpdir/storage-opt"
 mkdir -p "$storage_opt_dir"
