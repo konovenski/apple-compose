@@ -6938,6 +6938,63 @@ if grep -F "deploy.resources.limits.memory" <<<"$consistent_resource_plan" >/dev
   exit 1
 fi
 
+zero_resource_dir="$tmpdir/zero-resource-limits"
+mkdir -p "$zero_resource_dir"
+cat > "$zero_resource_dir/compose.yaml" <<'YAML'
+name: zero_resource_limits
+services:
+  service_zero:
+    image: nginx
+    cpus: "0"
+    cpu_count: 0
+    mem_limit: "0"
+  deploy_zero:
+    image: nginx
+    deploy:
+      resources:
+        limits:
+          cpus: "0"
+          memory: "0"
+        reservations:
+          cpus: "0"
+          memory: "0"
+  deploy_selected:
+    image: nginx
+    cpus: "0"
+    mem_limit: "0"
+    mem_reservation: "0"
+    pids_limit: 0
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 192M
+          pids: -1
+        reservations:
+          cpus: "0"
+          memory: "0"
+YAML
+zero_resource_plan="$(cd "$zero_resource_dir" && "$binary" up --dry-run)"
+grep -F "zero_resource_limits-service_zero-1" <<<"$zero_resource_plan" >/dev/null
+grep -F "zero_resource_limits-deploy_zero-1" <<<"$zero_resource_plan" >/dev/null
+grep -F "zero_resource_limits-deploy_selected-1" <<<"$zero_resource_plan" | grep -F -- "--cpus 0.75" | grep -F -- "--memory 201326592" >/dev/null
+if grep -F "zero_resource_limits-service_zero-1" <<<"$zero_resource_plan" | grep -F -- "--cpus" >/dev/null; then
+  echo "expected service cpus/cpu_count zero values not to emit --cpus" >&2
+  exit 1
+fi
+if grep -F "zero_resource_limits-service_zero-1" <<<"$zero_resource_plan" | grep -F -- "--memory" >/dev/null; then
+  echo "expected service mem_limit zero not to emit --memory" >&2
+  exit 1
+fi
+if grep -F "zero_resource_limits-deploy_zero-1" <<<"$zero_resource_plan" | grep -E -- "--cpus|--memory" >/dev/null; then
+  echo "expected deploy zero CPU/memory limits not to emit resource flags" >&2
+  exit 1
+fi
+if grep -F "[error]" <<<"$zero_resource_plan" >/dev/null; then
+  echo "expected zero service/deploy resource values to be accepted as no-ops" >&2
+  exit 1
+fi
+
 decimal_memory_dir="$tmpdir/decimal-memory"
 mkdir -p "$decimal_memory_dir"
 cat > "$decimal_memory_dir/compose.yaml" <<'YAML'

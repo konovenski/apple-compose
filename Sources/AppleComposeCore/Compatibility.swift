@@ -407,7 +407,6 @@ public struct CompatibilityAnalyzer {
             ("logging", "Docker logging drivers cannot be configured through Apple container CLI."),
             ("credential_spec", "Windows credential_spec has no macOS Apple container equivalent."),
             ("isolation", "Docker isolation modes have no Apple container equivalent."),
-            ("mem_reservation", "Memory reservation is not exposed by Apple container CLI; only a hard --memory limit can be applied."),
             ("mem_swappiness", "Memory swappiness is not exposed by Apple container CLI."),
             ("models", "Docker Compose model-runner integration is not available in Apple container CLI."),
             ("provider", "Compose provider delegation is not implemented by apple-compose."),
@@ -421,6 +420,9 @@ public struct CompatibilityAnalyzer {
                 continue
             }
             issues.append(.init(.error, location, key, message))
+        }
+        if let memReservation = map["mem_reservation"], !isByteValue(memReservation, equalTo: 0) {
+            issues.append(.init(.error, location, "mem_reservation", "Memory reservation is not exposed by Apple container CLI; only a hard --memory limit can be applied. Compose's explicit 0/default reservation is accepted."))
         }
 
         for key in map.keys where !knownServiceKeys.contains(key) && !key.hasPrefix("x-") {
@@ -454,16 +456,19 @@ public struct CompatibilityAnalyzer {
                         issues.append(.init(.error, "\(location).deploy.resources.limits", "pids", "PID limits are not exposed by Apple container CLI. Compose's explicit 0/default and -1/unlimited values are accepted as default behavior."))
                     }
                     if let serviceCPUs = map["cpus"]?.string,
+                       !isNumericValue(map["cpus"]!, equalTo: 0),
                        let deployCPUs = limits["cpus"]?.string,
                        !cpuValuesConsistent(serviceCPUs, deployCPUs) {
                         issues.append(.init(.error, location, "cpus + deploy.resources.limits.cpus", "Compose requires service cpus to be consistent with deploy.resources.limits.cpus when both are set."))
                     }
                     if let serviceMemory = map["mem_limit"]?.string,
+                       !isByteValue(map["mem_limit"]!, equalTo: 0),
                        let deployMemory = limits["memory"]?.string,
                        !byteValuesConsistent(serviceMemory, deployMemory) {
                         issues.append(.init(.error, location, "mem_limit + deploy.resources.limits.memory", "Compose requires mem_limit to be consistent with deploy.resources.limits.memory when both are set."))
                     }
                     if let servicePids = map["pids_limit"]?.int,
+                       !isNumericValue(map["pids_limit"]!, equalTo: 0),
                        let deployPids = limits["pids"]?.int,
                        servicePids != deployPids {
                         issues.append(.init(.error, location, "pids_limit + deploy.resources.limits.pids", "Compose requires pids_limit to be consistent with deploy.resources.limits.pids when both are set."))
@@ -477,11 +482,18 @@ public struct CompatibilityAnalyzer {
                         issues.append(.init(.error, "\(location).deploy.resources.reservations", "generic_resources", "Generic resource reservations are orchestration-time scheduling constraints and are not exposed by Apple container CLI."))
                     }
                     if let serviceMemoryReservation = map["mem_reservation"]?.string,
+                       !isByteValue(map["mem_reservation"]!, equalTo: 0),
                        let deployMemoryReservation = reservations["memory"]?.string,
                        !byteValuesConsistent(serviceMemoryReservation, deployMemoryReservation) {
                         issues.append(.init(.error, location, "mem_reservation + deploy.resources.reservations.memory", "Compose requires mem_reservation to be consistent with deploy.resources.reservations.memory when both are set."))
                     }
-                    for key in reservations.keys where !["devices", "generic_resources"].contains(key) && !key.hasPrefix("x-") {
+                    if let cpus = reservations["cpus"], !isNumericValue(cpus, equalTo: 0) {
+                        issues.append(.init(.error, "\(location).deploy.resources.reservations", "cpus", "CPU reservations are scheduler guarantees; Apple container CLI only exposes hard CPU limits. Compose's explicit 0/default reservation is accepted."))
+                    }
+                    if let memory = reservations["memory"], !isByteValue(memory, equalTo: 0) {
+                        issues.append(.init(.error, "\(location).deploy.resources.reservations", "memory", "Memory reservations are scheduler guarantees; Apple container CLI only exposes hard memory limits. Compose's explicit 0/default reservation is accepted."))
+                    }
+                    for key in reservations.keys where !["cpus", "devices", "generic_resources", "memory"].contains(key) && !key.hasPrefix("x-") {
                         issues.append(.init(.error, "\(location).deploy.resources.reservations", key, "Resource reservations are scheduler guarantees; Apple container CLI only exposes hard CPU and memory limits."))
                     }
                 }

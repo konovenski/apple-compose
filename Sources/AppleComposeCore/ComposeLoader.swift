@@ -807,13 +807,19 @@ struct ComposeParser {
                 throw ComposeError.invalidCompose("Service '\(name)' cannot set container_name when replicas are greater than 1")
             }
             let serviceDriverOptions = try parseDriverOptionsMap(serviceMap["driver_opts"], location: "Service '\(name)' driver_opts")
-            let serviceCPUs = try parseOptionalCPUQuantity(serviceMap["cpus"], location: "Service '\(name)' cpus")
-            let serviceCPUCount = try parseOptionalCPUCount(serviceMap["cpu_count"], location: "Service '\(name)' cpu_count")
-            let deployCPUs = try parseOptionalCPUQuantity(limits?["cpus"], location: "Service '\(name)' deploy.resources.limits.cpus")
-            let serviceMemory = try parseOptionalByteValue(serviceMap["mem_limit"], location: "Service '\(name)' mem_limit")
-            let deployMemory = try parseOptionalByteValue(limits?["memory"], location: "Service '\(name)' deploy.resources.limits.memory")
-            let serviceMemoryReservation = try parseOptionalByteValue(serviceMap["mem_reservation"], location: "Service '\(name)' mem_reservation")
+            let rawServiceCPUs = try parseOptionalCPUQuantity(serviceMap["cpus"], location: "Service '\(name)' cpus")
+            let rawServiceCPUCount = try parseOptionalCPUCount(serviceMap["cpu_count"], location: "Service '\(name)' cpu_count")
+            let rawDeployCPUs = try parseOptionalCPUQuantity(limits?["cpus"], location: "Service '\(name)' deploy.resources.limits.cpus")
+            let rawServiceMemory = try parseOptionalByteValue(serviceMap["mem_limit"], location: "Service '\(name)' mem_limit")
+            let rawDeployMemory = try parseOptionalByteValue(limits?["memory"], location: "Service '\(name)' deploy.resources.limits.memory")
+            let rawServiceMemoryReservation = try parseOptionalByteValue(serviceMap["mem_reservation"], location: "Service '\(name)' mem_reservation")
             let deployMemoryReservation = try parseOptionalByteValue(reservations?["memory"], location: "Service '\(name)' deploy.resources.reservations.memory")
+            let serviceCPUs = nonZeroCPUQuantity(rawServiceCPUs)
+            let serviceCPUCount = nonZeroCPUQuantity(rawServiceCPUCount)
+            let deployCPUs = nonZeroCPUQuantity(rawDeployCPUs)
+            let serviceMemory = nonZeroByteValue(rawServiceMemory)
+            let deployMemory = nonZeroByteValue(rawDeployMemory)
+            let serviceMemoryReservation = nonZeroByteValue(rawServiceMemoryReservation)
             _ = try parseExpose(serviceMap["expose"], serviceName: name)
             _ = try parseOptionalBoolOrString(serviceMap["attach"], location: "Service '\(name)' attach")
             _ = try parseOptionalBoolOrString(serviceMap["privileged"], location: "Service '\(name)' privileged")
@@ -837,17 +843,17 @@ struct ComposeParser {
                pullRefreshAfter == nil {
                 throw ComposeError.invalidCompose("Service '\(name)' pull_policy refresh requires pull_refresh_after")
             }
-            let servicePidsLimit = try parseOptionalPidsLimit(serviceMap["pids_limit"], location: "Service '\(name)' pids_limit")
+            let rawServicePidsLimit = try parseOptionalPidsLimit(serviceMap["pids_limit"], location: "Service '\(name)' pids_limit")
             let deployPidsLimit = try parseOptionalInt(limits?["pids"], location: "Service '\(name)' deploy.resources.limits.pids")
             try validateDeployResourceConsistency(
                 serviceName: name,
                 serviceCPUs: serviceCPUs,
-                deployCPUs: deployCPUs,
+                deployCPUs: rawDeployCPUs,
                 serviceMemory: serviceMemory,
-                deployMemory: deployMemory,
+                deployMemory: rawDeployMemory,
                 serviceMemoryReservation: serviceMemoryReservation,
                 deployMemoryReservation: deployMemoryReservation,
-                servicePidsLimit: servicePidsLimit,
+                servicePidsLimit: nonZeroPidsLimit(rawServicePidsLimit),
                 deployPidsLimit: deployPidsLimit
             )
             try parseUnsupportedServiceShapes(serviceMap, serviceName: name, modelNames: modelNames)
@@ -3052,6 +3058,25 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("\(location) must be a non-negative CPU number")
         }
         return value
+    }
+
+    private func nonZeroCPUQuantity(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = Double(trimmed), parsed == 0 else {
+            return value
+        }
+        return nil
+    }
+
+    private func nonZeroByteValue(_ value: String?) -> String? {
+        guard let value else { return nil }
+        return value == "0" ? nil : value
+    }
+
+    private func nonZeroPidsLimit(_ value: Int?) -> Int? {
+        guard let value else { return nil }
+        return value == 0 ? nil : value
     }
 
     private func parseOptionalCPUCount(_ node: YAMLValue?, location: String) throws -> String? {
