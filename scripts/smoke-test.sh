@@ -4249,13 +4249,35 @@ services:
     image: nginx
     networks:
       - vmnet
+  custom:
+    image: nginx
+    networks:
+      - custom
 networks:
   vmnet:
     driver: container-network-vmnet
+  custom:
+    driver: custom-network-plugin
+    driver_opts:
+      mode: fast
+      mtu: "1500"
 YAML
 network_plugin_plan="$(cd "$network_plugin_dir" && "$binary" plan)"
 grep -F "container network create --plugin container-network-vmnet" <<<"$network_plugin_plan" >/dev/null
 grep -F "network_plugin_vmnet" <<<"$network_plugin_plan" >/dev/null
+grep -F "container network create --plugin custom-network-plugin" <<<"$network_plugin_plan" | grep -F -- "--option mode=fast" | grep -F -- "--option mtu=1500" >/dev/null
+grep -F "network_plugin_custom" <<<"$network_plugin_plan" >/dev/null
+if (cd "$network_plugin_dir" && "$binary" up --dry-run >/tmp/apple-compose-network-plugin.out 2>&1); then
+  :
+else
+  cat /tmp/apple-compose-network-plugin.out >&2
+  echo "expected strict dry-run to accept custom network driver plugins" >&2
+  exit 1
+fi
+if grep -F "networks.custom: driver" /tmp/apple-compose-network-plugin.out >/dev/null; then
+  echo "expected custom network driver not to be reported as an Apple gap" >&2
+  exit 1
+fi
 
 network_mode_none_dir="$tmpdir/network-mode-none"
 mkdir -p "$network_mode_none_dir"

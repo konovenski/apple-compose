@@ -287,9 +287,6 @@ public struct CompatibilityAnalyzer {
         var issues: [CompatibilityIssue] = []
         let location = "networks.\(network.key)"
         issues += reservedComposeLabelIssues(network.labels, location: location)
-        if let driver = network.driver, !["bridge", "default", "container-network-vmnet"].contains(driver) {
-            issues.append(.init(.error, location, "driver", "Only vmnet-style bridge networks can be created. Driver '\(driver)' has no Apple container equivalent."))
-        }
         let ipv4SubnetCount = network.ipamSubnets.filter { !$0.contains(":") }.count
         let ipv6SubnetCount = network.ipamSubnets.filter { $0.contains(":") }.count
         if network.enableIPv4 == false {

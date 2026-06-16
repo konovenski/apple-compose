@@ -1221,7 +1221,15 @@ public struct ComposePlanner {
     }
 
     private func networkPluginArgument(for network: ComposeNetwork) -> String? {
-        network.driver == "container-network-vmnet" ? "container-network-vmnet" : nil
+        guard let driver = network.driver else {
+            return nil
+        }
+        switch driver.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "bridge", "default":
+            return nil
+        default:
+            return driver
+        }
     }
 
     private func actualVolumeName(_ volume: ComposeVolume, project: ComposeProject) -> String {
