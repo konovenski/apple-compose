@@ -1592,6 +1592,7 @@ services:
     cpu_rt_runtime: 0
     cpu_rt_period: 0s
     cpuset: ""
+    mem_swappiness: 0
     memswap_limit: 0
     pids_limit: -1.0
     oom_score_adj: 0
@@ -1606,6 +1607,10 @@ for resource_key in cpu_percent cpu_shares cpu_period cpu_quota cpu_rt_runtime c
 done
 if grep -F "services.web: memswap_limit" <<<"$disabled_resource_defaults_plan" >/dev/null; then
   echo "expected memswap_limit=0 to be accepted as default behavior" >&2
+  exit 1
+fi
+if grep -F "services.web: mem_swappiness" <<<"$disabled_resource_defaults_plan" >/dev/null; then
+  echo "expected mem_swappiness=0 to be accepted as default behavior" >&2
   exit 1
 fi
 if grep -F "services.web: pids_limit" <<<"$disabled_resource_defaults_plan" >/dev/null; then
@@ -1623,6 +1628,7 @@ cat > "$bad_resource_defaults_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
+    mem_swappiness: 1
     memswap_limit: 1g
     pids_limit: 10.5
     oom_score_adj: 500
@@ -1634,6 +1640,7 @@ fi
 
 grep -F "services.web: memswap_limit" /tmp/apple-compose-bad-resource-defaults.out >/dev/null
 grep -F "memswap_limit + memory" /tmp/apple-compose-bad-resource-defaults.out >/dev/null
+grep -F "services.web: mem_swappiness" /tmp/apple-compose-bad-resource-defaults.out >/dev/null
 grep -F "services.web: pids_limit" /tmp/apple-compose-bad-resource-defaults.out >/dev/null
 grep -F "services.web: oom_score_adj" /tmp/apple-compose-bad-resource-defaults.out >/dev/null
 

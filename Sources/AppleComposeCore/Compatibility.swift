@@ -400,7 +400,6 @@ public struct CompatibilityAnalyzer {
             ("logging", "Docker logging drivers cannot be configured through Apple container CLI."),
             ("credential_spec", "Windows credential_spec has no macOS Apple container equivalent."),
             ("isolation", "Docker isolation modes have no Apple container equivalent."),
-            ("mem_swappiness", "Memory swappiness is not exposed by Apple container CLI."),
             ("models", "Docker Compose model-runner integration is not available in Apple container CLI."),
             ("provider", "Compose provider delegation is not implemented by apple-compose."),
             ("develop", "Compose develop/watch behavior is not available in Apple container CLI."),
@@ -428,6 +427,9 @@ public struct CompatibilityAnalyzer {
         }
         if let memReservation = map["mem_reservation"], !isByteValue(memReservation, equalTo: 0) {
             issues.append(.init(.error, location, "mem_reservation", "Memory reservation is not exposed by Apple container CLI; only a hard --memory limit can be applied. Compose's explicit 0/default reservation is accepted."))
+        }
+        if let memSwappiness = map["mem_swappiness"], !isNumericValue(memSwappiness, equalTo: 0) {
+            issues.append(.init(.error, location, "mem_swappiness", "Memory swappiness is not exposed by Apple container CLI. Compose's explicit 0/default value is accepted."))
         }
 
         for key in map.keys where !knownServiceKeys.contains(key) && !key.hasPrefix("x-") {
