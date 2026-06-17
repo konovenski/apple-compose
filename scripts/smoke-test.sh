@@ -8801,6 +8801,46 @@ grep -F "Secret drivers are not exposed" /tmp/apple-compose-secret-driver-gap.ou
 grep -F "secrets.app_secret: driver_opts" /tmp/apple-compose-secret-driver-gap.out >/dev/null
 grep -F "secrets.app_secret: template_driver" /tmp/apple-compose-secret-driver-gap.out >/dev/null
 
+empty_secret_config_metadata_dir="$tmpdir/empty-secret-config-metadata"
+mkdir -p "$empty_secret_config_metadata_dir"
+cat > "$empty_secret_config_metadata_dir/compose.yaml" <<'YAML'
+name: empty_secret_config_metadata
+services:
+  web:
+    image: nginx
+    secrets:
+      - app_secret
+    configs:
+      - app_config
+secrets:
+  app_secret:
+    environment: APP_SECRET
+    driver: ""
+    driver_opts: {}
+    template_driver: ""
+configs:
+  app_config:
+    content: ok
+    template_driver: ""
+YAML
+empty_secret_config_metadata_config="$(cd "$empty_secret_config_metadata_dir" && APP_SECRET=secret "$binary" config)"
+grep -F "app_secret:" <<<"$empty_secret_config_metadata_config" >/dev/null
+grep -F "app_config:" <<<"$empty_secret_config_metadata_config" >/dev/null
+if grep -F 'driver: ""' <<<"$empty_secret_config_metadata_config" >/dev/null; then
+  echo "expected empty secret driver metadata to be omitted from normalized config" >&2
+  exit 1
+fi
+if grep -F 'template_driver: ""' <<<"$empty_secret_config_metadata_config" >/dev/null; then
+  echo "expected empty template driver metadata to be omitted from normalized config" >&2
+  exit 1
+fi
+empty_secret_config_metadata_plan="$(cd "$empty_secret_config_metadata_dir" && APP_SECRET=secret "$binary" plan)"
+grep -F "empty_secret_config_metadata-web-1" <<<"$empty_secret_config_metadata_plan" >/dev/null
+if grep -F "[error]" <<<"$empty_secret_config_metadata_plan" >/dev/null; then
+  echo "expected empty secret/config driver metadata to be accepted as defaults" >&2
+  exit 1
+fi
+
 config_labels_gap_dir="$tmpdir/config-labels-gap"
 mkdir -p "$config_labels_gap_dir"
 cat > "$config_labels_gap_dir/compose.yaml" <<'YAML'

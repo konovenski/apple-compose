@@ -194,13 +194,13 @@ public struct CompatibilityAnalyzer {
             if let labels = map["labels"], !isEmptyNoopValue(labels) {
                 issues.append(.init(.error, location, "labels", "Apple container CLI has no secret resource label API; apple-compose materializes secrets as files or bind mounts."))
             }
-            if let driver = map["driver"], !isEmptyNoopValue(driver) {
+            if let driver = map["driver"], !isEmptyNoopValue(driver), !isEmptyStringValue(driver) {
                 issues.append(.init(.error, location, "driver", "Secret drivers are not exposed by Apple container CLI; apple-compose can materialize file or environment-backed secrets as bind mounts."))
             }
             if let driverOptions = map["driver_opts"], !isEmptyNoopValue(driverOptions) {
                 issues.append(.init(.error, location, "driver_opts", "Secret driver options require a secret driver API, which Apple container CLI does not expose."))
             }
-            if let templateDriver = map["template_driver"], !isEmptyNoopValue(templateDriver) {
+            if let templateDriver = map["template_driver"], !isEmptyNoopValue(templateDriver), !isEmptyStringValue(templateDriver) {
                 issues.append(.init(.error, location, "template_driver", "Secret template drivers are not exposed by Apple container CLI."))
             }
             if !resourceIsExternal(map) {
@@ -227,7 +227,7 @@ public struct CompatibilityAnalyzer {
             if let labels = map["labels"], !isEmptyNoopValue(labels) {
                 issues.append(.init(.error, location, "labels", "Apple container CLI has no config resource label API; apple-compose materializes configs as files or bind mounts."))
             }
-            if let templateDriver = map["template_driver"], !isEmptyNoopValue(templateDriver) {
+            if let templateDriver = map["template_driver"], !isEmptyNoopValue(templateDriver), !isEmptyStringValue(templateDriver) {
                 issues.append(.init(.error, location, "template_driver", "Config template drivers are not exposed by Apple container CLI; apple-compose materializes file, content, or environment-backed configs."))
             }
             if !resourceIsExternal(map) {

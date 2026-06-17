@@ -1138,8 +1138,8 @@ struct ComposeParser {
             try validateExternalResourceAttributes(item, external: external, location: "secrets.\(key)")
             let file = try parseOptionalString(item["file"], location: "secrets.\(key).file")
             let environment = try parseOptionalString(item["environment"], location: "secrets.\(key).environment")
-            _ = try parseOptionalString(item["driver"], location: "secrets.\(key).driver")
-            _ = try parseOptionalString(item["template_driver"], location: "secrets.\(key).template_driver")
+            _ = try parseOptionalUnsettableString(item["driver"], location: "secrets.\(key).driver")
+            _ = try parseOptionalUnsettableString(item["template_driver"], location: "secrets.\(key).template_driver")
             _ = try parseDriverOptionsMap(item["driver_opts"], location: "secrets.\(key).driver_opts")
             _ = try parseLabelMap(item["labels"], location: "secrets.\(key).labels")
             try validateResourceSources(
@@ -1178,7 +1178,7 @@ struct ComposeParser {
             let file = try parseOptionalString(item["file"], location: "configs.\(key).file")
             let content = try parseOptionalString(item["content"], location: "configs.\(key).content", allowEmpty: true)
             let environment = try parseOptionalString(item["environment"], location: "configs.\(key).environment")
-            _ = try parseOptionalString(item["template_driver"], location: "configs.\(key).template_driver")
+            _ = try parseOptionalUnsettableString(item["template_driver"], location: "configs.\(key).template_driver")
             _ = try parseLabelMap(item["labels"], location: "configs.\(key).labels")
             try validateResourceSources(
                 item,
