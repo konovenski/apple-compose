@@ -403,7 +403,7 @@ public struct CompatibilityAnalyzer {
         if let pidsLimit = map["pids_limit"], !isNoopPidsLimit(pidsLimit) {
             issues.append(.init(.error, location, "pids_limit", "PID limits are not exposed by Apple container CLI. Compose's explicit 0/default and -1/unlimited values are accepted as default behavior."))
         }
-        if let healthcheck = map["healthcheck"], !isDisabledHealthcheck(healthcheck) {
+        if let healthcheck = map["healthcheck"], !isNoopHealthcheck(healthcheck), !isDisabledHealthcheck(healthcheck) {
             issues.append(.init(.error, location, "healthcheck", "Apple container CLI has no container healthcheck API; depends_on health conditions cannot be honored. Disabled healthcheck forms are accepted."))
         }
         if let networkMode = map["network_mode"], !isEmptyStringValue(networkMode) {
@@ -1326,6 +1326,15 @@ public struct CompatibilityAnalyzer {
             return true
         }
         return false
+    }
+
+    private func isNoopHealthcheck(_ value: YAMLValue) -> Bool {
+        guard let map = value.map else {
+            return false
+        }
+        return map.allSatisfy { key, value in
+            key.hasPrefix("x-") || (key == "test" && (value.array?.isEmpty ?? false))
+        }
     }
 
     private func exactBool(_ value: YAMLValue?) -> Bool? {

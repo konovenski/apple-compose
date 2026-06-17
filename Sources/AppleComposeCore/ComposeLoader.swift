@@ -2751,26 +2751,26 @@ struct ComposeParser {
 
     private func parseHealthcheckTest(_ node: YAMLValue?, serviceName: String) throws {
         guard let node else { return }
-        if case .null = node {
-            return
-        }
         let location = "Service '\(serviceName)' healthcheck.test"
+        if case .null = node {
+            throw ComposeError.invalidCompose("\(location) must be a string or list of strings")
+        }
         if node.array == nil {
-            _ = try parseOptionalString(node, location: location)
+            _ = try parseOptionalString(node, location: location, allowEmpty: true)
             return
         }
         guard let array = node.array else {
             throw ComposeError.invalidCompose("\(location) must be a string or list of strings")
         }
-        guard !array.isEmpty else {
-            throw ComposeError.invalidCompose("\(location) must not be an empty list")
+        if array.isEmpty {
+            return
         }
         let command = try parseRequiredString(array[0], location: "\(location)[0]")
         guard ["NONE", "CMD", "CMD-SHELL"].contains(command.uppercased()) else {
             throw ComposeError.invalidCompose("\(location)[0] must be NONE, CMD, or CMD-SHELL")
         }
         for (index, item) in array.dropFirst().enumerated() {
-            _ = try parseRequiredString(item, location: "\(location)[\(index + 1)]")
+            _ = try parseRequiredStringValue(item, location: "\(location)[\(index + 1)]")
         }
     }
 

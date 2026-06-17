@@ -9668,6 +9668,64 @@ fi
 
 grep -F "healthcheck" /tmp/apple-compose-bad.out >/dev/null
 
+noop_healthcheck_dir="$tmpdir/noop-healthcheck"
+mkdir -p "$noop_healthcheck_dir"
+cat > "$noop_healthcheck_dir/compose.yaml" <<'YAML'
+name: noop_healthcheck
+services:
+  empty_map:
+    image: nginx
+    healthcheck: {}
+  empty_test:
+    image: nginx
+    healthcheck:
+      test: []
+  extension_only:
+    image: nginx
+    healthcheck:
+      x-note: ok
+  disabled_extra:
+    image: nginx
+    healthcheck:
+      test: ["NONE", ""]
+YAML
+noop_healthcheck_plan="$(cd "$noop_healthcheck_dir" && "$binary" plan)"
+grep -F "noop_healthcheck-empty_map-1" <<<"$noop_healthcheck_plan" >/dev/null
+grep -F "noop_healthcheck-empty_test-1" <<<"$noop_healthcheck_plan" >/dev/null
+grep -F "noop_healthcheck-extension_only-1" <<<"$noop_healthcheck_plan" >/dev/null
+grep -F "noop_healthcheck-disabled_extra-1" <<<"$noop_healthcheck_plan" >/dev/null
+if grep -F "healthcheck API" <<<"$noop_healthcheck_plan" >/dev/null; then
+  echo "expected empty and disabled healthcheck forms to be accepted" >&2
+  exit 1
+fi
+
+empty_healthcheck_arg_dir="$tmpdir/empty-healthcheck-arg"
+mkdir -p "$empty_healthcheck_arg_dir"
+cat > "$empty_healthcheck_arg_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    healthcheck:
+      test: ["CMD", "", "   "]
+YAML
+empty_healthcheck_arg_plan="$(cd "$empty_healthcheck_arg_dir" && "$binary" plan)"
+grep -F "services.web: healthcheck" <<<"$empty_healthcheck_arg_plan" >/dev/null
+
+bad_healthcheck_test_null_dir="$tmpdir/bad-healthcheck-test-null"
+mkdir -p "$bad_healthcheck_test_null_dir"
+cat > "$bad_healthcheck_test_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    healthcheck:
+      test:
+YAML
+if (cd "$bad_healthcheck_test_null_dir" && "$binary" config >/tmp/apple-compose-bad-healthcheck-test-null.out 2>&1); then
+  echo "expected null healthcheck.test to be rejected" >&2
+  exit 1
+fi
+grep -F "healthcheck.test must be a string or list of strings" /tmp/apple-compose-bad-healthcheck-test-null.out >/dev/null
+
 bad_healthcheck_disable_shape_dir="$tmpdir/bad-healthcheck-disable-shape"
 mkdir -p "$bad_healthcheck_disable_shape_dir"
 cat > "$bad_healthcheck_disable_shape_dir/compose.yaml" <<'YAML'
@@ -9696,7 +9754,7 @@ if (cd "$bad_healthcheck_test_shape_dir" && "$binary" config >/tmp/apple-compose
   echo "expected non-string healthcheck.test entries to be rejected" >&2
   exit 1
 fi
-grep -F "healthcheck.test[1] must be a non-empty string" /tmp/apple-compose-bad-healthcheck-test-shape.out >/dev/null
+grep -F "healthcheck.test[1] must be a string" /tmp/apple-compose-bad-healthcheck-test-shape.out >/dev/null
 
 bad_healthcheck_test_command_dir="$tmpdir/bad-healthcheck-test-command"
 mkdir -p "$bad_healthcheck_test_command_dir"
