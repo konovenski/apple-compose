@@ -434,7 +434,6 @@ public struct CompatibilityAnalyzer {
             ("cgroup", "Cgroup namespace modes are not exposed by Apple container CLI."),
             ("uts", "UTS namespace modes are not exposed by Apple container CLI."),
             ("external_links", "Legacy external links are not supported by Apple container CLI."),
-            ("extra_hosts", "Custom /etc/hosts entries are not exposed by Apple container CLI."),
             ("hostname", "Container hostname cannot be set through Apple container CLI 1.0.0."),
             ("logging", "Docker logging drivers cannot be configured through Apple container CLI."),
             ("credential_spec", "Windows credential_spec has no macOS Apple container equivalent."),
@@ -455,6 +454,7 @@ public struct CompatibilityAnalyzer {
         if let cpuPercent = map["cpu_percent"], !isNumericValue(cpuPercent, equalTo: 0) {
             issues.append(.init(.error, location, "cpu_percent", "Apple container CLI exposes --cpus, but not Docker cpu_percent. Compose's explicit 0/default value is accepted."))
         }
+        issues += analyzeExtraHosts(service.extraHosts, location: "\(location).extra_hosts")
         for key in ["cpu_shares", "cpu_period", "cpu_quota"] where map[key] != nil && !isNumericValue(map[key]!, equalTo: 0) {
             issues.append(.init(.error, location, key, cpuControlMessage(for: key)))
         }
@@ -898,6 +898,20 @@ public struct CompatibilityAnalyzer {
         var issues: [CompatibilityIssue] = []
         if grant.uid != nil || grant.gid != nil {
             issues.append(.init(.error, location, "uid/gid", "Compose configs can set mounted file ownership, but Apple container bind mounts do not expose container-visible ownership remapping. Config mode is applied by generated config artifacts."))
+        }
+        return issues
+    }
+
+    private func analyzeExtraHosts(_ entries: [ExtraHostEntry], location: String) -> [CompatibilityIssue] {
+        var issues: [CompatibilityIssue] = []
+        for (index, entry) in entries.enumerated() {
+            let entryLocation = "\(location)[\(index)]"
+            if entry.host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || entry.host.rangeOfCharacter(from: .whitespacesAndNewlines) != nil {
+                issues.append(.init(.error, entryLocation, "host", "Compose extra_hosts names must be representable as a single /etc/hosts alias for apple-compose to materialize them."))
+            }
+            if !isValidIPv4Address(entry.address) && !isValidIPv6Address(entry.address) {
+                issues.append(.init(.error, entryLocation, "address", "Compose extra_hosts addresses must be valid IPv4 or IPv6 values for apple-compose to materialize /etc/hosts."))
+            }
         }
         return issues
     }

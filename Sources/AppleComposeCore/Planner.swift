@@ -751,6 +751,10 @@ public struct ComposePlanner {
             mounts.append(MountSpec(kind: .tmpfs, value: tmpfs.target))
         }
 
+        if !service.extraHosts.isEmpty {
+            mounts.append(MountSpec(kind: .mount, value: "type=bind,source=\(generatedExtraHostsPath(service: service, project: project).path),target=/etc/hosts,readonly"))
+        }
+
         for grant in service.secrets {
             guard let source = try secretSourcePath(grant.source, project: project) else { continue }
             let target = grant.target ?? "/run/secrets/\(grant.source)"
@@ -789,6 +793,9 @@ public struct ComposePlanner {
             }
             if let envArtifact = try generatedEnvFileArtifactIfNeeded(for: service, project: project) {
                 artifacts[envArtifact.path.path] = envArtifact
+            }
+            if let hostsArtifact = generatedExtraHostsArtifactIfNeeded(for: service, project: project) {
+                artifacts[hostsArtifact.path.path] = hostsArtifact
             }
             for grant in service.secrets {
                 guard let secret = project.secrets[grant.source], !secret.external, secret.file == nil else { continue }
@@ -831,6 +838,24 @@ public struct ComposePlanner {
         }
         let path = generatedEnvFilePath(service: service, project: project)
         return FileArtifact(path: path, contents: lines.joined(separator: "\n") + "\n", mode: 0o600, sensitive: true)
+    }
+
+    private func generatedExtraHostsArtifactIfNeeded(for service: ComposeService, project: ComposeProject) -> FileArtifact? {
+        guard !service.extraHosts.isEmpty else {
+            return nil
+        }
+        let lines = [
+            "127.0.0.1 localhost",
+            "::1 localhost ip6-localhost ip6-loopback"
+        ] + service.extraHosts
+            .map { "\($0.address) \($0.host)" }
+            .sorted()
+        return FileArtifact(
+            path: generatedExtraHostsPath(service: service, project: project),
+            contents: lines.joined(separator: "\n") + "\n",
+            mode: 0o444,
+            sensitive: false
+        )
     }
 
     private func effectiveEnvFileValues(for service: ComposeService, project: ComposeProject) throws -> [String: String?] {
@@ -953,6 +978,14 @@ public struct ComposePlanner {
             .appendingPathComponent(project.name)
             .appendingPathComponent("env")
             .appendingPathComponent("\(safeArtifactName(service.name)).env")
+    }
+
+    private func generatedExtraHostsPath(service: ComposeService, project: ComposeProject) -> URL {
+        project.workingDirectory
+            .appendingPathComponent(".apple-compose")
+            .appendingPathComponent(project.name)
+            .appendingPathComponent("hosts")
+            .appendingPathComponent("\(safeArtifactName(service.name)).hosts")
     }
 
     private func pullStateDirectory(project: ComposeProject) -> URL {

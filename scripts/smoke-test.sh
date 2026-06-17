@@ -3190,12 +3190,31 @@ services:
       - somehost=162.242.195.82
       - myhostv6=[::1]
       - colonhost:127.0.0.1
-      - bad host=not-an-ip
-      - empty-value=
 YAML
 extra_hosts_plan="$(cd "$extra_hosts_dir" && "$binary" plan)"
-grep -F "services.web: extra_hosts" <<<"$extra_hosts_plan" >/dev/null
-grep -F "Custom /etc/hosts entries are not exposed" <<<"$extra_hosts_plan" >/dev/null
+grep -F ".apple-compose/extra-hosts/hosts/web.hosts mode 444" <<<"$extra_hosts_plan" >/dev/null
+grep -F ".apple-compose/extra-hosts/hosts/web.hosts,target=/etc/hosts,readonly" <<<"$extra_hosts_plan" >/dev/null
+if grep -F "services.web: extra_hosts" <<<"$extra_hosts_plan" >/dev/null; then
+  echo "expected valid extra_hosts to be materialized without an Apple gap" >&2
+  exit 1
+fi
+
+bad_extra_hosts_runtime_dir="$tmpdir/bad-extra-hosts-runtime"
+mkdir -p "$bad_extra_hosts_runtime_dir"
+cat > "$bad_extra_hosts_runtime_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    extra_hosts:
+      - badhost=not-an-ip
+      - empty-value=
+YAML
+if (cd "$bad_extra_hosts_runtime_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-extra-hosts-runtime.out 2>&1); then
+  echo "expected strict up to reject unmaterializable extra_hosts addresses" >&2
+  exit 1
+fi
+grep -F "services.web.extra_hosts" /tmp/apple-compose-bad-extra-hosts-runtime.out >/dev/null
+grep -F "valid IPv4 or IPv6" /tmp/apple-compose-bad-extra-hosts-runtime.out >/dev/null
 
 extra_hosts_map_dir="$tmpdir/extra-hosts-map"
 mkdir -p "$extra_hosts_map_dir"

@@ -59,6 +59,7 @@ public struct ComposeService: Equatable {
     public var dnsSearch: [String]
     public var domainName: String?
     public var dnsOptions: [String]
+    public var extraHosts: [ExtraHostEntry]
     public var ulimits: [UlimitSpec]
     public var secrets: [ServiceFileGrant]
     public var configs: [ServiceFileGrant]
@@ -220,6 +221,11 @@ public struct UlimitSpec: Equatable {
     public var name: String
     public var soft: String
     public var hard: String?
+}
+
+public struct ExtraHostEntry: Equatable {
+    public var host: String
+    public var address: String
 }
 
 public struct ServiceFileGrant: Equatable {

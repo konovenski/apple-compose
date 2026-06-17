@@ -904,6 +904,7 @@ struct ComposeParser {
                 dnsSearch: try parseStringList(serviceMap["dns_search"], location: "Service '\(name)' dns_search", allowScalar: true, allowEmpty: true),
                 domainName: domainName,
                 dnsOptions: try parseStringList(serviceMap["dns_opt"], location: "Service '\(name)' dns_opt", allowEmpty: true),
+                extraHosts: try parseExtraHosts(serviceMap["extra_hosts"], location: "Service '\(name)' extra_hosts"),
                 ulimits: try parseUlimits(serviceMap["ulimits"], location: "Service '\(name)' ulimits"),
                 secrets: try parseFileGrants(serviceMap["secrets"], defaultTargetPrefix: "/run/secrets", serviceName: name, location: "secrets"),
                 configs: try parseFileGrants(serviceMap["configs"], defaultTargetPrefix: "/", serviceName: name, location: "configs"),
@@ -1002,7 +1003,7 @@ struct ComposeParser {
         _ = try parseStringList(map["cache_from"], location: "\(location).cache_from", allowEmpty: true)
         _ = try parseStringList(map["cache_to"], location: "\(location).cache_to", allowEmpty: true)
         _ = try parseStringList(map["entitlements"], location: "\(location).entitlements", allowEmpty: true)
-        try parseExtraHosts(map["extra_hosts"], location: "\(location).extra_hosts")
+        _ = try parseExtraHosts(map["extra_hosts"], location: "\(location).extra_hosts")
         _ = try parseOptionalUnsettableString(map["isolation"], location: "\(location).isolation")
         try parseBuildSSH(map["ssh"], location: "\(location).ssh")
     }
@@ -1912,7 +1913,7 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("Service '\(serviceName)' mem_swappiness must be between 0 and 100")
         }
         _ = try parseStringOrNumberList(serviceMap["group_add"], location: "Service '\(serviceName)' group_add", allowEmpty: true)
-        try parseExtraHosts(serviceMap["extra_hosts"], location: "Service '\(serviceName)' extra_hosts")
+        _ = try parseExtraHosts(serviceMap["extra_hosts"], location: "Service '\(serviceName)' extra_hosts")
         try parseSysctls(serviceMap["sysctls"], serviceName: serviceName)
         _ = try parseOptionalMap(serviceMap["storage_opt"], location: "Service '\(serviceName)' storage_opt")
         _ = try parseStringList(serviceMap["security_opt"], location: "Service '\(serviceName)' security_opt", allowEmpty: true)
@@ -2413,41 +2414,42 @@ struct ComposeParser {
         _ = try parseEnvironmentMap(map["environment"], location: "\(location).environment")
     }
 
-    private func parseExtraHosts(_ node: YAMLValue?, location: String) throws {
-        guard let node else { return }
+    private func parseExtraHosts(_ node: YAMLValue?, location: String) throws -> [ExtraHostEntry] {
+        guard let node else { return [] }
         if let map = node.map {
+            var entries: [ExtraHostEntry] = []
             for (host, value) in map.sorted(by: { $0.key < $1.key }) {
                 guard !host.isEmpty else {
                     throw ComposeError.invalidCompose("\(location) host names must not be empty")
                 }
-                try parseExtraHostMapAddresses(value, location: "\(location).\(host)")
+                entries += try parseExtraHostMapAddresses(value, host: host, location: "\(location).\(host)")
             }
-            return
+            return entries
         }
         if let array = node.array {
+            var entries: [ExtraHostEntry] = []
             for (index, item) in array.enumerated() {
                 let entry = try parseRequiredString(item, location: "\(location)[\(index)]")
-                try validateExtraHostEntry(entry, location: "\(location)[\(index)]")
+                entries.append(try parseExtraHostEntry(entry, location: "\(location)[\(index)]"))
             }
-            return
+            return entries
         }
         throw ComposeError.invalidCompose("\(location) must be a mapping or list of strings")
     }
 
-    private func parseExtraHostMapAddresses(_ node: YAMLValue, location: String) throws {
+    private func parseExtraHostMapAddresses(_ node: YAMLValue, host: String, location: String) throws -> [ExtraHostEntry] {
         if let array = node.array {
-            for (index, item) in array.enumerated() {
-                try parseExtraHostAddressValue(item, location: "\(location)[\(index)]")
+            return try array.enumerated().map { index, item in
+                ExtraHostEntry(host: host, address: try parseExtraHostAddressValue(item, location: "\(location)[\(index)]"))
             }
-            return
         }
         guard node.map == nil else {
             throw ComposeError.invalidCompose("\(location) must be a string or list of strings")
         }
-        try parseExtraHostAddressValue(node, location: location)
+        return [ExtraHostEntry(host: host, address: try parseExtraHostAddressValue(node, location: location))]
     }
 
-    private func validateExtraHostEntry(_ entry: String, location: String) throws {
+    private func parseExtraHostEntry(_ entry: String, location: String) throws -> ExtraHostEntry {
         let separatorIndex = entry.firstIndex(of: "=") ?? entry.firstIndex(of: ":")
         guard let separatorIndex else {
             throw ComposeError.invalidCompose("\(location) must use HOSTNAME=IP or HOSTNAME:IP syntax")
@@ -2456,17 +2458,27 @@ struct ComposeParser {
         guard !host.isEmpty else {
             throw ComposeError.invalidCompose("\(location) host must not be empty")
         }
+        let addressStart = entry.index(after: separatorIndex)
+        let address = String(entry[addressStart...])
+        return ExtraHostEntry(host: host, address: normalizedExtraHostAddress(address))
     }
 
-    private func parseExtraHostAddressValue(_ node: YAMLValue, location: String) throws {
+    private func parseExtraHostAddressValue(_ node: YAMLValue, location: String) throws -> String {
         switch node {
-        case .string:
-            return
+        case .string(let value):
+            return normalizedExtraHostAddress(value)
         case .reset(let value), .overrideValue(let value):
-            try parseExtraHostAddressValue(value, location: location)
+            return try parseExtraHostAddressValue(value, location: location)
         default:
             throw ComposeError.invalidCompose("\(location) must be a string")
         }
+    }
+
+    private func normalizedExtraHostAddress(_ value: String) -> String {
+        if value.hasPrefix("[") && value.hasSuffix("]") && value.count > 2 {
+            return String(value.dropFirst().dropLast())
+        }
+        return value
     }
 
     private func parseSysctls(_ node: YAMLValue?, serviceName: String) throws {
