@@ -5682,17 +5682,17 @@ services:
     mac_address: "02:00:00:00:00:10"
     networks:
       front:
-        priority: 10.5
+        priority: 10.9
       back:
-        priority: 10.25
+        priority: 10.1
 networks:
   front: {}
   back: {}
 YAML
 network_numeric_priority_plan="$(cd "$network_numeric_priority_dir" && "$binary" plan)"
-grep -F -- "--network network_numeric_priority_front,mac=02:00:00:00:00:10 --network network_numeric_priority_back" <<<"$network_numeric_priority_plan" >/dev/null
-if grep -F -- "--network network_numeric_priority_back,mac=" <<<"$network_numeric_priority_plan" >/dev/null; then
-  echo "expected fractional priority to select only the highest-priority network for service-level mac_address" >&2
+grep -F -- "--network network_numeric_priority_back,mac=02:00:00:00:00:10 --network network_numeric_priority_front" <<<"$network_numeric_priority_plan" >/dev/null
+if grep -F -- "--network network_numeric_priority_front,mac=" <<<"$network_numeric_priority_plan" >/dev/null; then
+  echo "expected Compose-truncated fractional priority to select only the highest ordered network for service-level mac_address" >&2
   exit 1
 fi
 

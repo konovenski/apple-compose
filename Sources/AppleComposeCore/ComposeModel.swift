@@ -210,9 +210,9 @@ public struct NetworkAttachment: Equatable {
     public var ipv6Address: String?
     public var macAddress: String?
     public var driverOptions: [String: String]
-    public var priority: Double?
+    public var priority: Int?
     public var interfaceName: String?
-    public var gwPriority: Double?
+    public var gwPriority: Int?
     public var linkLocalIPs: [String]
 }
 

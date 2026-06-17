@@ -1665,9 +1665,9 @@ struct ComposeParser {
                 ipv6Address: try parseOptionalIPAddress(item["ipv6_address"], version: .ipv6, location: "Service '\(serviceName)' networks.\(key).ipv6_address"),
                 macAddress: try parseMACAddress(item["mac_address"], location: "Service '\(serviceName)' networks.\(key).mac_address"),
                 driverOptions: driverOptions,
-                priority: try parseOptionalNumber(item["priority"], location: "Service '\(serviceName)' networks.\(key).priority"),
+                priority: try parseOptionalTruncatedNumber(item["priority"], location: "Service '\(serviceName)' networks.\(key).priority"),
                 interfaceName: try parseOptionalString(item["interface_name"], location: "Service '\(serviceName)' networks.\(key).interface_name"),
-                gwPriority: try parseOptionalNumber(item["gw_priority"], location: "Service '\(serviceName)' networks.\(key).gw_priority"),
+                gwPriority: try parseOptionalTruncatedNumber(item["gw_priority"], location: "Service '\(serviceName)' networks.\(key).gw_priority"),
                 linkLocalIPs: try parseIPAddressList(item["link_local_ips"], location: "Service '\(serviceName)' networks.\(key).link_local_ips")
             )
         }
@@ -3090,6 +3090,27 @@ struct ComposeParser {
             return value
         case .reset(let value), .overrideValue(let value):
             return try parseOptionalNumber(value, location: location)
+        default:
+            throw ComposeError.invalidCompose("\(location) must be a number")
+        }
+    }
+
+    private func parseOptionalTruncatedNumber(_ node: YAMLValue?, location: String) throws -> Int? {
+        guard let node else { return nil }
+        if case .null = node {
+            return nil
+        }
+        switch node {
+        case .int(let value, _):
+            return value
+        case .double(let value) where value.isFinite:
+            let truncated = value.rounded(.towardZero)
+            guard truncated >= Double(Int.min), truncated < Double(Int.max) else {
+                throw ComposeError.invalidCompose("\(location) must fit in an integer")
+            }
+            return Int(truncated)
+        case .reset(let value), .overrideValue(let value):
+            return try parseOptionalTruncatedNumber(value, location: location)
         default:
             throw ComposeError.invalidCompose("\(location) must be a number")
         }
