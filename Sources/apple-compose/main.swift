@@ -60,6 +60,9 @@ struct Up: ParsableCommand {
     @Flag(name: .long, help: "Do not include dependent services when specific services are selected.")
     var noDeps = false
 
+    @Flag(name: .long, help: "Start services without following attached logs.")
+    var detach = false
+
     @Argument(help: "Optional service names to create/recreate.")
     var services: [String] = []
 
@@ -70,7 +73,8 @@ struct Up: ParsableCommand {
             compatibilityMode: compatibilityMode,
             containerBinary: common.containerBin,
             serviceNames: services,
-            includeDependencies: !noDeps
+            includeDependencies: !noDeps,
+            attachLogs: !detach
         ))
         printIssues(plan.issues, mode: compatibilityMode)
         try CommandRunner(dryRun: dryRun).run(plan)
@@ -113,6 +117,9 @@ struct Plan: ParsableCommand {
     @Flag(name: .long, help: "Do not include dependent services when specific services are selected.")
     var noDeps = false
 
+    @Flag(name: .long, help: "Show the log-follow command that up runs by default.")
+    var attachLogs = false
+
     @Argument(help: "Optional service names to include in the plan.")
     var services: [String] = []
 
@@ -124,7 +131,8 @@ struct Plan: ParsableCommand {
             containerBinary: common.containerBin,
             removeVolumes: volumes,
             serviceNames: services,
-            includeDependencies: !noDeps
+            includeDependencies: !noDeps,
+            attachLogs: attachLogs
         )
         print("Project: \(project.name)")
         printIssues(plan.issues, mode: .bestEffort)

@@ -12,6 +12,7 @@ public struct PlanOptions: Equatable {
     public var removeVolumes: Bool
     public var serviceNames: [String]
     public var includeDependencies: Bool
+    public var attachLogs: Bool
 
     public init(
         action: PlanAction,
@@ -19,7 +20,8 @@ public struct PlanOptions: Equatable {
         containerBinary: String = "container",
         removeVolumes: Bool = false,
         serviceNames: [String] = [],
-        includeDependencies: Bool = true
+        includeDependencies: Bool = true,
+        attachLogs: Bool = false
     ) {
         self.action = action
         self.compatibilityMode = compatibilityMode
@@ -27,6 +29,7 @@ public struct PlanOptions: Equatable {
         self.removeVolumes = removeVolumes
         self.serviceNames = serviceNames
         self.includeDependencies = includeDependencies
+        self.attachLogs = attachLogs
     }
 }
 
@@ -93,7 +96,7 @@ public struct ComposePlanner {
         let artifacts: [FileArtifact]
         switch options.action {
         case .up:
-            commands = try planUp(project, services: services, containerBinary: options.containerBinary)
+            commands = try planUp(project, services: services, containerBinary: options.containerBinary, attachLogs: options.attachLogs)
             artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
             commands = try planDown(project, services: services, containerBinary: options.containerBinary, removeVolumes: options.removeVolumes, removeProjectResources: options.serviceNames.isEmpty)
@@ -109,7 +112,8 @@ public struct ComposePlanner {
         containerBinary: String = "container",
         removeVolumes: Bool = false,
         serviceNames: [String] = [],
-        includeDependencies: Bool = true
+        includeDependencies: Bool = true,
+        attachLogs: Bool = false
     ) throws -> ComposePlan {
         let services = try selectedOrderedServices(project, requested: serviceNames, includeDependencies: includeDependencies)
         try validateResourceReferences(project: project, services: services)
@@ -118,7 +122,7 @@ public struct ComposePlanner {
         let artifacts: [FileArtifact]
         switch action {
         case .up:
-            commands = try planUp(project, services: services, containerBinary: containerBinary)
+            commands = try planUp(project, services: services, containerBinary: containerBinary, attachLogs: attachLogs)
             artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
             commands = try planDown(project, services: services, containerBinary: containerBinary, removeVolumes: removeVolumes, removeProjectResources: serviceNames.isEmpty)
@@ -157,7 +161,7 @@ public struct ComposePlanner {
         )
     }
 
-    private func planUp(_ project: ComposeProject, services: [ComposeService], containerBinary: String) throws -> [RuntimeCommand] {
+    private func planUp(_ project: ComposeProject, services: [ComposeService], containerBinary: String, attachLogs: Bool) throws -> [RuntimeCommand] {
         var commands: [RuntimeCommand] = []
         let activeServices = activeManagedReplicaServices(services)
         let usedNetworks = collectUsedNetworks(project, services: activeServices)
@@ -254,6 +258,10 @@ public struct ComposePlanner {
                 commands.append(try runCommand(for: service, project: project, replica: replica, containerBinary: containerBinary))
                 commands += execHookCommands(service.postStart, service: service, project: project, containerName: name, containerBinary: containerBinary, allowFailure: false, lifecycleName: "post_start")
             }
+        }
+
+        if attachLogs, let attachCommand = followLogsCommand(for: activeServices, project: project, containerBinary: containerBinary) {
+            commands.append(attachCommand)
         }
 
         return commands
@@ -715,6 +723,33 @@ public struct ComposePlanner {
         }
         args += commandArguments
         return RuntimeCommand(containerBinary, args)
+    }
+
+    private func followLogsCommand(for services: [ComposeService], project: ComposeProject, containerBinary: String) -> RuntimeCommand? {
+        let containerNames = services
+            .filter(\.attach)
+            .flatMap { service in
+                replicaNumbers(for: service).map { containerName(for: service, project: project, replica: $0) }
+            }
+        guard !containerNames.isEmpty else {
+            return nil
+        }
+        let script = """
+        container_bin=$1
+        shift
+        pids=
+        trap 'kill $pids 2>/dev/null' INT TERM EXIT
+        for container_id in "$@"; do
+          "$container_bin" logs --follow "$container_id" &
+          pids="$pids $!"
+        done
+        wait
+        """
+        return RuntimeCommand(
+            "/bin/sh",
+            ["-c", script, "apple-compose-attach-logs", containerBinary] + containerNames,
+            note: "Follow logs for services with attach enabled. Stop with Ctrl-C."
+        )
     }
 
     private enum MountKind {

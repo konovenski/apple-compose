@@ -1473,11 +1473,17 @@ services:
     image: nginx
     attach: "true"
 YAML
-attach_plan="$(cd "$attach_dir" && "$binary" plan)"
+attach_plan="$(cd "$attach_dir" && "$binary" plan --attach-logs)"
 grep -F "attach_demo-quiet-1" <<<"$attach_plan" >/dev/null
-grep -F "services.loud: attach" <<<"$attach_plan" >/dev/null
-if grep -F "services.quiet: attach" <<<"$attach_plan" >/dev/null; then
-  echo "expected attach=false to be accepted as detached up behavior" >&2
+grep -F "logs --follow" <<<"$attach_plan" >/dev/null
+grep -F "apple-compose-attach-logs container attach_demo-loud-1" <<<"$attach_plan" >/dev/null
+if grep -F "apple-compose-attach-logs" <<<"$attach_plan" | grep -F "attach_demo-quiet-1" >/dev/null; then
+  echo "expected attach=false service to be omitted from log following" >&2
+  exit 1
+fi
+attach_detach_plan="$(cd "$attach_dir" && "$binary" up --dry-run --detach)"
+if grep -F "logs --follow" <<<"$attach_detach_plan" >/dev/null; then
+  echo "expected up --detach not to follow logs" >&2
   exit 1
 fi
 

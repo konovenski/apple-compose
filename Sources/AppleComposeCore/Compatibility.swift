@@ -367,9 +367,6 @@ public struct CompatibilityAnalyzer {
         issues += emptyEnvironmentKeyIssues(service.environment, location: "\(location).environment", feature: "environment")
         issues += emptyLabelKeyIssues(service.labels, location: location)
         issues += reservedComposeLabelIssues(service.labels, location: location)
-        if let attach = map["attach"], exactBool(attach) != false {
-            issues.append(.init(.warning, location, "attach", "apple-compose runs containers detached and does not attach log streams during up."))
-        }
         if let restart = map["restart"] {
             if let rawPolicy = exactString(restart), !rawPolicy.isEmpty {
                 let policy = rawPolicy.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

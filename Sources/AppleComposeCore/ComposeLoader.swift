@@ -879,6 +879,7 @@ struct ComposeParser {
                 envFiles: try parseEnvFiles(serviceMap["env_file"], serviceName: name),
                 labels: try serviceLabels(serviceMap, serviceName: name),
                 annotations: try parseLabelMap(serviceMap["annotations"], location: "Service '\(name)' annotations"),
+                attach: try parseOptionalBoolOrString(serviceMap["attach"], location: "Service '\(name)' attach") ?? true,
                 ports: try parsePorts(serviceMap["ports"], serviceName: name),
                 volumes: try parseServiceVolumes(serviceMap["volumes"], serviceName: name),
                 volumesFrom: try parseVolumesFrom(serviceMap["volumes_from"], serviceName: name),

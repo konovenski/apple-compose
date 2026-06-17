@@ -34,6 +34,7 @@ public struct ComposeService: Equatable {
     public var envFiles: [EnvFileSpec]
     public var labels: [String: String]
     public var annotations: [String: String]
+    public var attach: Bool
     public var ports: [PortSpec]
     public var volumes: [ServiceVolume]
     public var volumesFrom: [VolumesFromSpec]
