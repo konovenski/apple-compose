@@ -4537,19 +4537,17 @@ YAML
 domainname_plan="$(cd "$domainname_dir" && "$binary" plan)"
 grep -F -- "--dns-domain app.example.test" <<<"$domainname_plan" >/dev/null
 
-bad_domainname_dir="$tmpdir/bad-domainname"
-mkdir -p "$bad_domainname_dir"
-cat > "$bad_domainname_dir/compose.yaml" <<'YAML'
+loose_domainname_dir="$tmpdir/loose-domainname"
+mkdir -p "$loose_domainname_dir"
+cat > "$loose_domainname_dir/compose.yaml" <<'YAML'
+name: loose_domainname_demo
 services:
   app:
     image: nginx
     domainname: bad_domain.example.test
 YAML
-if (cd "$bad_domainname_dir" && "$binary" config >/tmp/apple-compose-bad-domainname.out 2>&1); then
-  echo "expected invalid domainname values to be rejected" >&2
-  exit 1
-fi
-grep -F "domainname must be a valid RFC 1123 hostname" /tmp/apple-compose-bad-domainname.out >/dev/null
+loose_domainname_plan="$(cd "$loose_domainname_dir" && "$binary" plan)"
+grep -F -- "--dns-domain bad_domain.example.test" <<<"$loose_domainname_plan" >/dev/null
 
 hostname_dir="$tmpdir/hostname"
 mkdir -p "$hostname_dir"
@@ -4563,19 +4561,17 @@ hostname_plan="$(cd "$hostname_dir" && "$binary" plan)"
 grep -F "services.app: hostname" <<<"$hostname_plan" >/dev/null
 grep -F "Container hostname cannot be set" <<<"$hostname_plan" >/dev/null
 
-bad_hostname_dir="$tmpdir/bad-hostname"
-mkdir -p "$bad_hostname_dir"
-cat > "$bad_hostname_dir/compose.yaml" <<'YAML'
+loose_hostname_dir="$tmpdir/loose-hostname"
+mkdir -p "$loose_hostname_dir"
+cat > "$loose_hostname_dir/compose.yaml" <<'YAML'
 services:
   app:
     image: nginx
     hostname: bad_host
 YAML
-if (cd "$bad_hostname_dir" && "$binary" config >/tmp/apple-compose-bad-hostname.out 2>&1); then
-  echo "expected invalid hostname values to be rejected" >&2
-  exit 1
-fi
-grep -F "hostname must be a valid RFC 1123 hostname" /tmp/apple-compose-bad-hostname.out >/dev/null
+loose_hostname_plan="$(cd "$loose_hostname_dir" && "$binary" plan)"
+grep -F "services.app: hostname" <<<"$loose_hostname_plan" >/dev/null
+grep -F "Container hostname cannot be set" <<<"$loose_hostname_plan" >/dev/null
 
 bad_dns_opt_shape_dir="$tmpdir/bad-dns-opt-shape"
 mkdir -p "$bad_dns_opt_shape_dir"

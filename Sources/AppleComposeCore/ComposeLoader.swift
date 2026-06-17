@@ -2611,22 +2611,11 @@ struct ComposeParser {
     }
 
     private func parseDomainName(_ node: YAMLValue?, serviceName: String) throws -> String? {
-        guard let domainName = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' domainname") else {
-            return nil
-        }
-        guard isValidRFC1123Hostname(domainName) else {
-            throw ComposeError.invalidCompose("Service '\(serviceName)' domainname must be a valid RFC 1123 hostname")
-        }
-        return domainName
+        try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' domainname")
     }
 
     private func parseHostname(_ node: YAMLValue?, serviceName: String) throws {
-        guard let hostname = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' hostname") else {
-            return
-        }
-        guard isValidRFC1123Hostname(hostname) else {
-            throw ComposeError.invalidCompose("Service '\(serviceName)' hostname must be a valid RFC 1123 hostname")
-        }
+        _ = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' hostname")
     }
 
     private func parseMACAddress(_ node: YAMLValue?, location: String) throws -> String? {
