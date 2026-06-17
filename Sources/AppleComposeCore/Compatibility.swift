@@ -669,7 +669,7 @@ public struct CompatibilityAnalyzer {
             for option in volume.shortOptions where !knownShortVolumeOptions.contains(option) {
                 issues.append(.init(.error, volumeLocation, option, "Unknown or unsupported short-syntax volume access mode."))
             }
-            if volume.bind?["propagation"] != nil {
+            if exactString(volume.bind?["propagation"])?.isEmpty == false {
                 issues.append(.init(.error, volumeLocation, "bind.propagation", "Apple container --mount does not expose Compose bind propagation modes."))
             }
             if let recursive = volume.bind?["recursive"],

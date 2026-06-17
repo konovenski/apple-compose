@@ -1536,7 +1536,7 @@ struct ComposeParser {
             let image = try parseOptionalVolumeOptionMap(map["image"], known: ["subpath"], location: "Service '\(serviceName)' volumes[\(index)].image")
             let isBindMount = type == "bind"
             let createHostPath = try parseOptionalBoolOrString(bind?["create_host_path"], location: "Service '\(serviceName)' volumes[\(index)].bind.create_host_path") ?? true
-            _ = try parseOptionalString(bind?["propagation"], location: "Service '\(serviceName)' volumes[\(index)].bind.propagation")
+            _ = try parseOptionalExactNonEmptyString(bind?["propagation"], location: "Service '\(serviceName)' volumes[\(index)].bind.propagation")
             _ = try parseOptionalEnum(bind?["selinux"], allowed: ["z", "Z"], location: "Service '\(serviceName)' volumes[\(index)].bind.selinux")
             _ = try parseOptionalEnum(bind?["recursive"], allowed: ["disabled", "enabled", "readonly", "writable"], location: "Service '\(serviceName)' volumes[\(index)].bind.recursive")
             _ = try parseOptionalBoolOrString(volume?["nocopy"], location: "Service '\(serviceName)' volumes[\(index)].volume.nocopy")
@@ -1545,7 +1545,7 @@ struct ComposeParser {
             _ = try parseOptionalByteValue(tmpfs?["size"], location: "Service '\(serviceName)' volumes[\(index)].tmpfs.size", allowDoubleScalar: false)
             _ = try parseOptionalStringOrNumber(tmpfs?["mode"], location: "Service '\(serviceName)' volumes[\(index)].tmpfs.mode")
             _ = try parseOptionalString(image?["subpath"], location: "Service '\(serviceName)' volumes[\(index)].image.subpath", allowEmpty: true)
-            let consistency = try parseOptionalString(map["consistency"], location: "Service '\(serviceName)' volumes[\(index)].consistency")
+            let consistency = try parseOptionalExactNonEmptyString(map["consistency"], location: "Service '\(serviceName)' volumes[\(index)].consistency")
             volumes.append(ServiceVolume(
                 type: type,
                 source: source,

@@ -8755,6 +8755,35 @@ fi
 grep -F "services.web.volumes[/data]: bind.propagation" /tmp/apple-compose-long-volume-bind-propagation-gap.out >/dev/null
 grep -F "bind propagation modes" /tmp/apple-compose-long-volume-bind-propagation-gap.out >/dev/null
 
+long_volume_bind_empty_options_dir="$tmpdir/long-volume-bind-empty-options"
+mkdir -p "$long_volume_bind_empty_options_dir/data"
+cat > "$long_volume_bind_empty_options_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    volumes:
+      - type: bind
+        source: ./data
+        target: /data
+        consistency: ""
+        bind:
+          propagation: ""
+YAML
+if ! (cd "$long_volume_bind_empty_options_dir" && "$binary" up --dry-run >/tmp/apple-compose-long-volume-bind-empty-options.out 2>&1); then
+  cat /tmp/apple-compose-long-volume-bind-empty-options.out >&2
+  echo "expected empty bind propagation and consistency values to behave as defaults" >&2
+  exit 1
+fi
+grep -F "long-volume-bind-empty-options/data,target=/data" /tmp/apple-compose-long-volume-bind-empty-options.out >/dev/null
+if grep -F "bind.propagation" /tmp/apple-compose-long-volume-bind-empty-options.out >/dev/null; then
+  echo "expected empty bind propagation not to be reported" >&2
+  exit 1
+fi
+if grep -F "services.web.volumes[/data]: consistency" /tmp/apple-compose-long-volume-bind-empty-options.out >/dev/null; then
+  echo "expected empty consistency not to be reported" >&2
+  exit 1
+fi
+
 bad_long_volume_recursive_dir="$tmpdir/bad-long-volume-recursive"
 mkdir -p "$bad_long_volume_recursive_dir"
 cat > "$bad_long_volume_recursive_dir/compose.yaml" <<'YAML'
