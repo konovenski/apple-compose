@@ -96,7 +96,7 @@ public struct ComposePlanner {
             commands = try planUp(project, services: services, containerBinary: options.containerBinary)
             artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
-            commands = planDown(project, services: services, containerBinary: options.containerBinary, removeVolumes: options.removeVolumes, removeProjectResources: options.serviceNames.isEmpty)
+            commands = try planDown(project, services: services, containerBinary: options.containerBinary, removeVolumes: options.removeVolumes, removeProjectResources: options.serviceNames.isEmpty)
             artifacts = []
         }
 
@@ -121,7 +121,7 @@ public struct ComposePlanner {
             commands = try planUp(project, services: services, containerBinary: containerBinary)
             artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
-            commands = planDown(project, services: services, containerBinary: containerBinary, removeVolumes: removeVolumes, removeProjectResources: serviceNames.isEmpty)
+            commands = try planDown(project, services: services, containerBinary: containerBinary, removeVolumes: removeVolumes, removeProjectResources: serviceNames.isEmpty)
             artifacts = []
         }
         return ComposePlan(project: project, action: action, commands: commands, artifacts: artifacts, issues: issues)
@@ -161,7 +161,7 @@ public struct ComposePlanner {
         var commands: [RuntimeCommand] = []
         let activeServices = activeManagedReplicaServices(services)
         let usedNetworks = collectUsedNetworks(project, services: activeServices)
-        let usedVolumes = collectUsedVolumes(project, services: activeServices)
+        let usedVolumes = try collectUsedVolumes(project, services: activeServices)
 
         for key in usedNetworks.sorted() {
             let network = project.networks[key] ?? ComposeNetwork(key: key, name: nil, external: false, driver: nil, driverOptions: [:], labels: [:], internalNetwork: false, ipamSubnets: [], enableIPv4: nil, enableIPv6: nil)
@@ -216,7 +216,7 @@ public struct ComposePlanner {
             commands.append(RuntimeCommand(containerBinary, args, allowFailure: true, note: "Volume create is idempotent when the named volume already exists."))
         }
 
-        commands += bindHostPathCommands(project: project, services: activeServices)
+        commands += try bindHostPathCommands(project: project, services: activeServices)
 
         for service in activeServices where shouldBuild(service) {
             if shouldBuildWithPullFallback(service) {
@@ -265,7 +265,7 @@ public struct ComposePlanner {
         containerBinary: String,
         removeVolumes: Bool,
         removeProjectResources: Bool
-    ) -> [RuntimeCommand] {
+    ) throws -> [RuntimeCommand] {
         var commands: [RuntimeCommand] = []
         let managedServices = managedContainerServices(services)
         for service in managedServices.reversed() {
@@ -289,7 +289,7 @@ public struct ComposePlanner {
         }
 
         if removeVolumes {
-            let usedVolumes = collectUsedVolumes(project, services: managedServices)
+            let usedVolumes = try collectUsedVolumes(project, services: managedServices)
             for key in usedVolumes.keys.sorted().reversed() {
                 let volume = usedVolumes[key] ?? ComposeVolume(key: key, name: nil, external: false, driver: nil, driverOptions: [:], labels: [:])
                 if !volume.external {
@@ -727,9 +727,16 @@ public struct ComposePlanner {
         var value: String
     }
 
+    private struct VolumeMountInput {
+        var volume: ServiceVolume
+        var owner: ComposeService
+        var readOnlyOverride: Bool?
+    }
+
     private func mountSpecs(for service: ComposeService, project: ComposeProject) throws -> [MountSpec] {
         var mounts: [MountSpec] = []
-        for volume in service.volumes {
+        for input in try volumeMountInputs(for: service, project: project) {
+            let volume = input.volume
             let type = resolvedVolumeType(volume)
             if type == "tmpfs" {
                 mounts.append(MountSpec(kind: .tmpfs, value: volume.target))
@@ -737,11 +744,11 @@ public struct ComposePlanner {
             }
 
             var pieces: [String] = ["type=\(type)"]
-            if let source = resolvedVolumeSource(volume, service: service, project: project, type: type) {
+            if let source = resolvedVolumeSource(volume, service: input.owner, project: project, type: type) {
                 pieces.append("source=\(source)")
             }
             pieces.append("target=\(volume.target)")
-            if volume.readOnly {
+            if input.readOnlyOverride ?? volume.readOnly {
                 pieces.append("readonly")
             }
             mounts.append(MountSpec(kind: .mount, value: pieces.joined(separator: ",")))
@@ -770,11 +777,27 @@ public struct ComposePlanner {
         return mounts
     }
 
-    private func bindHostPathCommands(project: ComposeProject, services: [ComposeService]) -> [RuntimeCommand] {
+    private func volumeMountInputs(for service: ComposeService, project: ComposeProject) throws -> [VolumeMountInput] {
+        var inputs: [VolumeMountInput] = []
+        for source in service.volumesFrom where !source.containerReference {
+            guard let sourceService = project.services[source.source] else {
+                throw ComposeError.invalidCompose("Service '\(service.name)' volumes_from refers to undefined service '\(source.source)'")
+            }
+            inputs += sourceService.volumes.map {
+                VolumeMountInput(volume: $0, owner: sourceService, readOnlyOverride: source.readOnly ?? false)
+            }
+        }
+        inputs += service.volumes.map {
+            VolumeMountInput(volume: $0, owner: service, readOnlyOverride: nil)
+        }
+        return inputs
+    }
+
+    private func bindHostPathCommands(project: ComposeProject, services: [ComposeService]) throws -> [RuntimeCommand] {
         var paths: Set<String> = []
         for service in services {
-            for volume in service.volumes where volume.createHostPath && resolvedVolumeType(volume) == "bind" {
-                if let source = resolvedVolumeSource(volume, service: service, project: project, type: "bind") {
+            for input in try volumeMountInputs(for: service, project: project) where input.volume.createHostPath && resolvedVolumeType(input.volume) == "bind" {
+                if let source = resolvedVolumeSource(input.volume, service: input.owner, project: project, type: "bind") {
                     paths.insert(source)
                 }
             }
@@ -1053,11 +1076,12 @@ public struct ComposePlanner {
         return keys
     }
 
-    private func collectUsedVolumes(_ project: ComposeProject, services: [ComposeService]) -> [String: ComposeVolume] {
+    private func collectUsedVolumes(_ project: ComposeProject, services: [ComposeService]) throws -> [String: ComposeVolume] {
         var volumes: [String: ComposeVolume] = [:]
         for service in services {
-            for volume in service.volumes where resolvedVolumeType(volume) == "volume" {
-                let key = volume.source ?? anonymousVolumeKey(service: service, target: volume.target)
+            for input in try volumeMountInputs(for: service, project: project) where resolvedVolumeType(input.volume) == "volume" {
+                let volume = input.volume
+                let key = volume.source ?? anonymousVolumeKey(service: input.owner, target: volume.target)
                 var definition = volumes[key] ?? project.volumes[key] ?? ComposeVolume(key: key, name: nil, external: false, driver: nil, driverOptions: [:], labels: [:])
                 definition.labels.merge(volume.volumeLabels) { _, serviceLabel in serviceLabel }
                 volumes[key] = definition
@@ -1389,6 +1413,19 @@ public struct ComposePlanner {
                 }
                 throw ComposeError.invalidCompose("Service '\(service.name)' refers to undefined volume '\(source)'")
             }
+            for source in service.volumesFrom where !source.containerReference {
+                guard let sourceService = project.services[source.source] else {
+                    throw ComposeError.invalidCompose("Service '\(service.name)' volumes_from refers to undefined service '\(source.source)'")
+                }
+                for volume in sourceService.volumes {
+                    guard serviceVolumeReferenceRequiresTopLevelDefinition(volume),
+                          let volumeSource = volume.source,
+                          project.volumes[volumeSource] == nil else {
+                        continue
+                    }
+                    throw ComposeError.invalidCompose("Service '\(service.name)' volumes_from references service '\(source.source)' with undefined volume '\(volumeSource)'")
+                }
+            }
 
             for grant in service.secrets where project.secrets[grant.source] == nil {
                 throw ComposeError.invalidCompose("Service '\(service.name)' refers to undefined secret '\(grant.source)'")
@@ -1528,6 +1565,9 @@ public struct ComposePlanner {
         var dependencies = service.dependsOn.mapValues(\.required)
         for link in service.links {
             dependencies[link.source] = true
+        }
+        for source in service.volumesFrom where !source.containerReference {
+            dependencies[source.source] = true
         }
         for dependency in namespaceServiceReferences(for: service).keys {
             dependencies[dependency] = true

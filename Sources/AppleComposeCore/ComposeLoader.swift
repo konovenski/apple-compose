@@ -881,6 +881,7 @@ struct ComposeParser {
                 annotations: try parseLabelMap(serviceMap["annotations"], location: "Service '\(name)' annotations"),
                 ports: try parsePorts(serviceMap["ports"], serviceName: name),
                 volumes: try parseServiceVolumes(serviceMap["volumes"], serviceName: name),
+                volumesFrom: try parseVolumesFrom(serviceMap["volumes_from"], serviceName: name),
                 tmpfs: try parseTmpfs(serviceMap["tmpfs"], serviceName: name),
                 networks: try parseServiceNetworks(serviceMap["networks"], serviceDriverOptions: serviceDriverOptions, serviceName: name),
                 networkMode: networkMode,
@@ -1879,7 +1880,7 @@ struct ComposeParser {
         try parseBlkioConfig(serviceMap["blkio_config"], serviceName: serviceName)
         try parseDevices(serviceMap["devices"], serviceName: serviceName)
         try parseExternalLinks(serviceMap["external_links"], serviceName: serviceName)
-        try parseVolumesFrom(serviceMap["volumes_from"], serviceName: serviceName)
+        _ = try parseVolumesFrom(serviceMap["volumes_from"], serviceName: serviceName)
         try parseDeviceCgroupRules(serviceMap["device_cgroup_rules"], serviceName: serviceName)
         for key in ["cgroup_parent", "isolation", "userns_mode"] {
             _ = try parseOptionalUnsettableString(serviceMap[key], location: "Service '\(serviceName)' \(key)")
@@ -2175,11 +2176,11 @@ struct ComposeParser {
         _ = try parseRequiredString(map[sourceKey]!, location: "Service '\(serviceName)' credential_spec.\(sourceKey)")
     }
 
-    private func parseVolumesFrom(_ node: YAMLValue?, serviceName: String) throws {
+    private func parseVolumesFrom(_ node: YAMLValue?, serviceName: String) throws -> [VolumesFromSpec] {
         let location = "Service '\(serviceName)' volumes_from"
         let entries = try parseStringList(node, location: location)
-        for (index, entry) in entries.enumerated() {
-            try validateVolumesFromEntry(entry, location: "\(location)[\(index)]")
+        return try entries.enumerated().map { index, entry in
+            try parseVolumesFromEntry(entry, location: "\(location)[\(index)]")
         }
     }
 
@@ -2188,7 +2189,7 @@ struct ComposeParser {
         _ = try parseStringList(node, location: location, allowEmpty: true)
     }
 
-    private func validateVolumesFromEntry(_ entry: String, location: String) throws {
+    private func parseVolumesFromEntry(_ entry: String, location: String) throws -> VolumesFromSpec {
         let pieces = entry.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
         if pieces.first == "container" {
             guard pieces.count == 2 || pieces.count == 3 else {
@@ -2197,10 +2198,8 @@ struct ComposeParser {
             guard pieces.count > 1, !pieces[1].isEmpty else {
                 throw ComposeError.invalidCompose("\(location) container name must not be empty")
             }
-            if pieces.count == 3 {
-                try validateVolumesFromAccessMode(pieces[2], location: location)
-            }
-            return
+            let readOnly = pieces.count == 3 ? try parseVolumesFromAccessMode(pieces[2], location: location) : nil
+            return VolumesFromSpec(source: pieces[1], containerReference: true, readOnly: readOnly)
         }
         guard pieces.count == 1 || pieces.count == 2 else {
             throw ComposeError.invalidCompose("\(location) must use SERVICE[:ro|rw] or container:<name>[:ro|rw] syntax")
@@ -2208,15 +2207,15 @@ struct ComposeParser {
         guard let source = pieces.first, !source.isEmpty else {
             throw ComposeError.invalidCompose("\(location) source must not be empty")
         }
-        if pieces.count == 2 {
-            try validateVolumesFromAccessMode(pieces[1], location: location)
-        }
+        let readOnly = pieces.count == 2 ? try parseVolumesFromAccessMode(pieces[1], location: location) : nil
+        return VolumesFromSpec(source: source, containerReference: false, readOnly: readOnly)
     }
 
-    private func validateVolumesFromAccessMode(_ value: String, location: String) throws {
+    private func parseVolumesFromAccessMode(_ value: String, location: String) throws -> Bool {
         guard ["ro", "rw"].contains(value) else {
             throw ComposeError.invalidCompose("\(location) access mode must be ro or rw")
         }
+        return value == "ro"
     }
 
     private func parseGPUs(_ node: YAMLValue?, serviceName: String) throws {

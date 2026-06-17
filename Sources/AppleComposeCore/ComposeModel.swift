@@ -36,6 +36,7 @@ public struct ComposeService: Equatable {
     public var annotations: [String: String]
     public var ports: [PortSpec]
     public var volumes: [ServiceVolume]
+    public var volumesFrom: [VolumesFromSpec]
     public var tmpfs: [TmpfsSpec]
     public var networks: [String: NetworkAttachment]?
     public var networkMode: String?
@@ -197,6 +198,12 @@ public struct ServiceVolume: Equatable {
     public var volume: YAMLValue?
     public var volumeLabels: [String: String]
     public var tmpfs: YAMLValue?
+}
+
+public struct VolumesFromSpec: Equatable {
+    public var source: String
+    public var containerReference: Bool
+    public var readOnly: Bool?
 }
 
 public struct TmpfsSpec: Equatable {

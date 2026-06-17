@@ -43,7 +43,7 @@ public struct CompatibilityAnalyzer {
     public func analyze(_ project: ComposeProject, services plannedServices: [ComposeService]? = nil) -> [CompatibilityIssue] {
         let servicesToAnalyze = plannedServices ?? project.services.values.sorted(by: { $0.name < $1.name })
         let plannedServiceNames = plannedServices.map { Set($0.map(\.name)) }
-        let resourceUsage = plannedServices.map { collectResourceUsage(for: $0) }
+        let resourceUsage = plannedServices.map { collectResourceUsage(for: $0, project: project) }
         var issues: [CompatibilityIssue] = []
         issues += analyzeTopLevel(project, resourceUsage: resourceUsage)
         for network in project.networks.values.sorted(by: { $0.key < $1.key }) where resourceUsage?.networks.contains(network.key) ?? true {
@@ -67,7 +67,7 @@ public struct CompatibilityAnalyzer {
         }
     }
 
-    private func collectResourceUsage(for services: [ComposeService]) -> ResourceUsage {
+    private func collectResourceUsage(for services: [ComposeService], project: ComposeProject) -> ResourceUsage {
         var networks: Set<String> = []
         var volumes: Set<String> = []
         var secrets: Set<String> = []
@@ -87,7 +87,7 @@ public struct CompatibilityAnalyzer {
                 networks.insert("default")
             }
 
-            for volume in service.volumes where resolvedVolumeType(volume) == "volume" {
+            for volume in serviceVolumesIncludingVolumesFrom(for: service, project: project) where resolvedVolumeType(volume) == "volume" {
                 if let source = volume.source {
                     volumes.insert(source)
                 }
@@ -442,8 +442,7 @@ public struct CompatibilityAnalyzer {
             ("provider", "Compose provider delegation is not implemented by apple-compose."),
             ("develop", "Compose develop/watch behavior is not available in Apple container CLI."),
             ("storage_opt", "Container storage driver options are not exposed by Apple container CLI."),
-            ("userns_mode", "User namespace modes are not exposed by Apple container CLI."),
-            ("volumes_from", "Mounting all volumes from another container is not exposed by Apple container CLI.")
+            ("userns_mode", "User namespace modes are not exposed by Apple container CLI.")
         ]
         for (key, message) in unsupportedServiceKeys {
             guard let value = map[key], !isEmptyNoopValue(value), !isUnsupportedNoopValue(key, value) else {
@@ -597,6 +596,7 @@ public struct CompatibilityAnalyzer {
                 issues.append(.init(.error, linkLocation, "alias", "Link alias '\(alias)' requires per-service network aliases, which Apple container CLI does not expose. Use the linked service name on a shared network."))
             }
         }
+        issues += analyzeVolumesFrom(service, project: project, plannedServiceNames: plannedServiceNames, location: location)
 
         for (index, port) in service.ports.enumerated() {
             let portLocation = "\(location).ports[\(index)]"
@@ -657,49 +657,7 @@ public struct CompatibilityAnalyzer {
             issues.append(.init(.warning, location, "pre_stop", "Hooks are run by apple-compose before managed stops/deletes; hooks cannot run when a container exits by itself."))
         }
 
-        for volume in service.volumes {
-            let volumeLocation = "\(location).volumes[\(volume.target)]"
-            if let type = volume.type, !["bind", "volume", "tmpfs"].contains(type) {
-                issues.append(.init(.error, volumeLocation, "type", "Mount type '\(type)' is not supported by Apple container CLI."))
-            }
-            if volume.consistency != nil {
-                issues.append(.init(.warning, volumeLocation, "consistency", "macOS bind consistency hints are not exposed by Apple container CLI."))
-            }
-            if volume.shortOptions.contains(where: { $0 == "z" || $0 == "Z" }) {
-                issues.append(.init(.warning, volumeLocation, "SELinux relabel", "SELinux relabeling from short volume syntax is ignored by Apple container CLI."))
-            }
-            for option in volume.shortOptions where !knownShortVolumeOptions.contains(option) {
-                issues.append(.init(.error, volumeLocation, option, "Unknown or unsupported short-syntax volume access mode."))
-            }
-            if exactString(volume.bind?["propagation"])?.isEmpty == false {
-                issues.append(.init(.error, volumeLocation, "bind.propagation", "Apple container --mount does not expose Compose bind propagation modes."))
-            }
-            if let recursive = volume.bind?["recursive"],
-               let mode = exactString(recursive)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-               mode != "enabled" {
-                issues.append(.init(.error, volumeLocation, "bind.recursive", "Apple container --mount does not expose Compose bind recursive modes. Only the default enabled behavior can be approximated."))
-            }
-            if volume.bind?["selinux"] != nil {
-                issues.append(.init(.warning, volumeLocation, "bind.selinux", "SELinux relabeling is ignored on platforms without SELinux, including Apple container hosts."))
-            }
-            let activeNocopy = exactBool(volume.volume?["nocopy"]) == true
-            let activeSubpath = exactString(volume.volume?["subpath"])?.isEmpty == false
-            if activeNocopy || activeSubpath {
-                issues.append(.init(.error, volumeLocation, "volume", "Apple container volume mounts do not expose Compose volume nocopy or subpath options."))
-            }
-            if !volume.volumeLabels.isEmpty {
-                issues += emptyLabelKeyIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
-                issues += reservedComposeLabelIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
-                if resolvedVolumeType(volume) == "volume",
-                   let source = volume.source,
-                   project.volumes[source]?.external == true {
-                    issues.append(.init(.error, "\(volumeLocation).volume", "labels", "Service-level volume labels cannot be applied to an external volume that apple-compose does not create."))
-                }
-            }
-            if volume.tmpfs?["mode"] != nil || volume.tmpfs?["size"] != nil {
-                issues.append(.init(.error, volumeLocation, "tmpfs", "Apple container --tmpfs accepts a target path only; Compose tmpfs mode and size cannot be applied."))
-            }
-        }
+        issues += analyzeServiceVolumes(service.volumes, location: "\(location).volumes", project: project)
 
         for tmpfs in service.tmpfs where tmpfs.options != nil {
             issues.append(.init(.error, "\(location).tmpfs[\(tmpfs.target)]", "options", "Apple container --tmpfs accepts a target path only; Compose tmpfs options cannot be applied."))
@@ -916,6 +874,82 @@ public struct CompatibilityAnalyzer {
         return issues
     }
 
+    private func analyzeVolumesFrom(
+        _ service: ComposeService,
+        project: ComposeProject,
+        plannedServiceNames: Set<String>?,
+        location: String
+    ) -> [CompatibilityIssue] {
+        var issues: [CompatibilityIssue] = []
+        for (index, source) in service.volumesFrom.enumerated() {
+            let entryLocation = "\(location).volumes_from[\(index)]"
+            if source.containerReference {
+                issues.append(.init(.error, entryLocation, "container", "Apple container CLI does not expose Docker's volumes-from behavior for existing external containers. apple-compose can only expand explicit Compose volume mounts from referenced services."))
+                continue
+            }
+            guard let sourceService = project.services[source.source] else {
+                issues.append(.init(.error, entryLocation, "service", "Referenced service '\(source.source)' is not defined or not active."))
+                continue
+            }
+            if hasActiveProvider(sourceService.raw.map?["provider"]) {
+                issues.append(.init(.error, entryLocation, "provider", "Referenced service '\(source.source)' is provider-delegated and has no Apple container whose volumes can be inherited."))
+            }
+            if let plannedServiceNames, !plannedServiceNames.contains(source.source) {
+                issues.append(.init(.warning, entryLocation, "selection", "Referenced service '\(source.source)' is not included in the selected plan; apple-compose expands its explicit volume definitions but will not start it."))
+                issues += analyzeServiceVolumes(sourceService.volumes, location: "services.\(source.source).volumes", project: project)
+            }
+        }
+        return issues
+    }
+
+    private func analyzeServiceVolumes(_ volumes: [ServiceVolume], location: String, project: ComposeProject) -> [CompatibilityIssue] {
+        var issues: [CompatibilityIssue] = []
+        for volume in volumes {
+            let volumeLocation = "\(location)[\(volume.target)]"
+            if let type = volume.type, !["bind", "volume", "tmpfs"].contains(type) {
+                issues.append(.init(.error, volumeLocation, "type", "Mount type '\(type)' is not supported by Apple container CLI."))
+            }
+            if volume.consistency != nil {
+                issues.append(.init(.warning, volumeLocation, "consistency", "macOS bind consistency hints are not exposed by Apple container CLI."))
+            }
+            if volume.shortOptions.contains(where: { $0 == "z" || $0 == "Z" }) {
+                issues.append(.init(.warning, volumeLocation, "SELinux relabel", "SELinux relabeling from short volume syntax is ignored by Apple container CLI."))
+            }
+            for option in volume.shortOptions where !knownShortVolumeOptions.contains(option) {
+                issues.append(.init(.error, volumeLocation, option, "Unknown or unsupported short-syntax volume access mode."))
+            }
+            if exactString(volume.bind?["propagation"])?.isEmpty == false {
+                issues.append(.init(.error, volumeLocation, "bind.propagation", "Apple container --mount does not expose Compose bind propagation modes."))
+            }
+            if let recursive = volume.bind?["recursive"],
+               let mode = exactString(recursive)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+               mode != "enabled" {
+                issues.append(.init(.error, volumeLocation, "bind.recursive", "Apple container --mount does not expose Compose bind recursive modes. Only the default enabled behavior can be approximated."))
+            }
+            if volume.bind?["selinux"] != nil {
+                issues.append(.init(.warning, volumeLocation, "bind.selinux", "SELinux relabeling is ignored on platforms without SELinux, including Apple container hosts."))
+            }
+            let activeNocopy = exactBool(volume.volume?["nocopy"]) == true
+            let activeSubpath = exactString(volume.volume?["subpath"])?.isEmpty == false
+            if activeNocopy || activeSubpath {
+                issues.append(.init(.error, volumeLocation, "volume", "Apple container volume mounts do not expose Compose volume nocopy or subpath options."))
+            }
+            if !volume.volumeLabels.isEmpty {
+                issues += emptyLabelKeyIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
+                issues += reservedComposeLabelIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
+                if resolvedVolumeType(volume) == "volume",
+                   let source = volume.source,
+                   project.volumes[source]?.external == true {
+                    issues.append(.init(.error, "\(volumeLocation).volume", "labels", "Service-level volume labels cannot be applied to an external volume that apple-compose does not create."))
+                }
+            }
+            if volume.tmpfs?["mode"] != nil || volume.tmpfs?["size"] != nil {
+                issues.append(.init(.error, volumeLocation, "tmpfs", "Apple container --tmpfs accepts a target path only; Compose tmpfs mode and size cannot be applied."))
+            }
+        }
+        return issues
+    }
+
     private func analyzeNestedServiceMaps(_ service: ComposeService, location: String) -> [CompatibilityIssue] {
         guard let map = service.raw.map else { return [] }
         var issues: [CompatibilityIssue] = []
@@ -1097,6 +1131,17 @@ public struct CompatibilityAnalyzer {
             return "volume"
         }
         return looksLikeHostPath(source) ? "bind" : "volume"
+    }
+
+    private func serviceVolumesIncludingVolumesFrom(for service: ComposeService, project: ComposeProject) -> [ServiceVolume] {
+        var volumes: [ServiceVolume] = []
+        for source in service.volumesFrom where !source.containerReference {
+            if let sourceService = project.services[source.source] {
+                volumes += sourceService.volumes
+            }
+        }
+        volumes += service.volumes
+        return volumes
     }
 
     private func looksLikeHostPath(_ value: String) -> Bool {

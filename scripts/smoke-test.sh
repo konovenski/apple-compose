@@ -2018,6 +2018,10 @@ credential_volumes_from_dir="$tmpdir/credential-volumes-from"
 mkdir -p "$credential_volumes_from_dir"
 cat > "$credential_volumes_from_dir/compose.yaml" <<'YAML'
 services:
+  db:
+    image: busybox
+    volumes:
+      - db-data:/var/lib/db
   web:
     image: nginx
     credential_spec:
@@ -2025,13 +2029,52 @@ services:
     volumes_from:
       - db:ro
       - container:legacy:rw
+volumes:
+  db-data: {}
 configs:
   gmsa_spec:
     file: ./credential.json
 YAML
 credential_volumes_from_plan="$(cd "$credential_volumes_from_dir" && "$binary" plan)"
 grep -F "services.web: credential_spec" <<<"$credential_volumes_from_plan" >/dev/null
-grep -F "services.web: volumes_from" <<<"$credential_volumes_from_plan" >/dev/null
+grep -F "services.web.volumes_from[1]: container" <<<"$credential_volumes_from_plan" >/dev/null
+
+volumes_from_service_dir="$tmpdir/volumes-from-service"
+mkdir -p "$volumes_from_service_dir"
+cat > "$volumes_from_service_dir/compose.yaml" <<'YAML'
+name: volumes_from_service
+services:
+  data:
+    image: busybox
+    volumes:
+      - data-cache:/cache
+      - ./shared:/shared:ro
+  app:
+    image: nginx
+    volumes_from:
+      - data:ro
+    volumes:
+      - ./own:/own
+volumes:
+  data-cache: {}
+YAML
+volumes_from_service_plan="$(cd "$volumes_from_service_dir" && "$binary" plan)"
+grep -F "container volume create --label com.docker.compose.project=volumes_from_service --label com.docker.compose.volume=data-cache volumes_from_service_data-cache" <<<"$volumes_from_service_plan" >/dev/null
+grep -F "volumes_from_service-app-1" <<<"$volumes_from_service_plan" | grep -F -- "--mount type=volume,source=volumes_from_service_data-cache,target=/cache,readonly" >/dev/null
+grep -F "volumes_from_service-app-1" <<<"$volumes_from_service_plan" | grep -F -- "target=/shared,readonly" >/dev/null
+if grep -F "services.app.volumes_from" <<<"$volumes_from_service_plan" >/dev/null; then
+  echo "expected service-form volumes_from to expand explicit source-service volumes without a compatibility finding" >&2
+  exit 1
+fi
+
+volumes_from_nodeps_plan="$(cd "$volumes_from_service_dir" && "$binary" plan --no-deps app)"
+grep -F "services.app.volumes_from[0]: selection" <<<"$volumes_from_nodeps_plan" >/dev/null
+grep -F "container volume create --label com.docker.compose.project=volumes_from_service --label com.docker.compose.volume=data-cache volumes_from_service_data-cache" <<<"$volumes_from_nodeps_plan" >/dev/null
+grep -F "volumes_from_service-app-1" <<<"$volumes_from_nodeps_plan" | grep -F -- "--mount type=volume,source=volumes_from_service_data-cache,target=/cache,readonly" >/dev/null
+if grep -F "volumes_from_service-data-1" <<<"$volumes_from_nodeps_plan" >/dev/null; then
+  echo "expected --no-deps selected service plan not to start the volumes_from source service" >&2
+  exit 1
+fi
 
 bad_credential_source_dir="$tmpdir/bad-credential-source"
 mkdir -p "$bad_credential_source_dir"
