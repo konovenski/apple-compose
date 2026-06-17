@@ -5438,9 +5438,9 @@ if (cd "$bad_links_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-links.
 fi
 grep -F "services.web.links[0]: alias" /tmp/apple-compose-bad-links.out >/dev/null
 
-bad_link_empty_alias_dir="$tmpdir/bad-link-empty-alias"
-mkdir -p "$bad_link_empty_alias_dir"
-cat > "$bad_link_empty_alias_dir/compose.yaml" <<'YAML'
+link_empty_alias_dir="$tmpdir/link-empty-alias"
+mkdir -p "$link_empty_alias_dir"
+cat > "$link_empty_alias_dir/compose.yaml" <<'YAML'
 services:
   db:
     image: example/db
@@ -5449,11 +5449,17 @@ services:
     links:
       - "db:"
 YAML
-if (cd "$bad_link_empty_alias_dir" && "$binary" config >/tmp/apple-compose-bad-link-empty-alias.out 2>&1); then
-  echo "expected empty link aliases to be rejected" >&2
+if ! (cd "$link_empty_alias_dir" && "$binary" up --dry-run >/tmp/apple-compose-link-empty-alias.out 2>&1); then
+  cat /tmp/apple-compose-link-empty-alias.out >&2
+  echo "expected empty link aliases to behave as plain links" >&2
   exit 1
 fi
-grep -F "Service 'web' links alias must not be empty" /tmp/apple-compose-bad-link-empty-alias.out >/dev/null
+grep -F "link-empty-alias-db-1" /tmp/apple-compose-link-empty-alias.out >/dev/null
+grep -F "link-empty-alias-web-1" /tmp/apple-compose-link-empty-alias.out >/dev/null
+if grep -F "services.web.links[0]: alias" /tmp/apple-compose-link-empty-alias.out >/dev/null; then
+  echo "expected empty link aliases not to be reported as active aliases" >&2
+  exit 1
+fi
 
 missing_link_dir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$include_dir" "$envvars_dir" "$disabled_env_dir" "$selection_dir" "$bad_links_dir" "$missing_link_dir"' EXIT

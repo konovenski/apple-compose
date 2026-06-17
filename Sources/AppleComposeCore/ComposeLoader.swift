@@ -1248,11 +1248,8 @@ struct ComposeParser {
             guard let source = parts.first?.trimmingCharacters(in: .whitespacesAndNewlines), !source.isEmpty else {
                 throw ComposeError.invalidCompose("Service '\(serviceName)' links source must not be empty")
             }
-            let alias = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : ""
-            if parts.count > 1 && alias.isEmpty {
-                throw ComposeError.invalidCompose("Service '\(serviceName)' links alias must not be empty")
-            }
-            return ServiceLink(source: source, alias: parts.count > 1 ? alias : nil)
+            let alias = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : nil
+            return ServiceLink(source: source, alias: alias?.isEmpty == true ? nil : alias)
         }
     }
 
