@@ -494,10 +494,10 @@ public struct CompatibilityAnalyzer {
             if let placement = deploy["placement"], !isEmptyNoopValue(placement) {
                 issues.append(.init(.error, "\(location).deploy", "placement", "Deploy placement constraints and preferences require a Swarm orchestrator and cannot be applied to local Apple containers."))
             }
-            if let updateConfig = deploy["update_config"], !isEmptyNoopValue(updateConfig) {
+            if let updateConfig = deploy["update_config"], !isDeployUpdateConfigNoopValue(updateConfig) {
                 issues.append(.init(.error, "\(location).deploy", "update_config", "Deploy update_config requires Swarm rolling-update orchestration and cannot be applied to local Apple containers."))
             }
-            if let rollbackConfig = deploy["rollback_config"], !isEmptyNoopValue(rollbackConfig) {
+            if let rollbackConfig = deploy["rollback_config"], !isDeployUpdateConfigNoopValue(rollbackConfig) {
                 issues.append(.init(.error, "\(location).deploy", "rollback_config", "Deploy rollback_config requires Swarm rollback orchestration and cannot be applied to local Apple containers."))
             }
             if let restartPolicy = deploy["restart_policy"]?.map {
@@ -826,6 +826,9 @@ public struct CompatibilityAnalyzer {
     }
 
     private func analyzeDeployRestartPolicy(_ restartPolicy: [String: YAMLValue], location: String) -> [CompatibilityIssue] {
+        guard !isDeployRestartPolicyNoopValue(.map(restartPolicy)) else {
+            return []
+        }
         let condition = exactString(restartPolicy["condition"])?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if condition == "none", restartPolicy.keys.allSatisfy({ $0 == "condition" || $0.hasPrefix("x-") }) {
             return []
@@ -833,6 +836,48 @@ public struct CompatibilityAnalyzer {
         return [
             .init(.error, location, "condition", "Only deploy.restart_policy.condition: none can be represented as Apple container's default no-restart behavior. Active restart policies are not exposed by Apple container CLI.")
         ]
+    }
+
+    private func isDeployRestartPolicyNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .null:
+            return true
+        case .map(let map):
+            return map.allSatisfy { key, value in
+                if key.hasPrefix("x-") {
+                    return true
+                }
+                if key == "condition" {
+                    return isExactEmptyStringValue(value)
+                }
+                return false
+            }
+        case .reset(let value), .overrideValue(let value):
+            return isDeployRestartPolicyNoopValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isDeployUpdateConfigNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .null:
+            return true
+        case .map(let map):
+            return map.allSatisfy { key, value in
+                if key.hasPrefix("x-") {
+                    return true
+                }
+                if key == "failure_action" {
+                    return isExactEmptyStringValue(value)
+                }
+                return false
+            }
+        case .reset(let value), .overrideValue(let value):
+            return isDeployUpdateConfigNoopValue(value)
+        default:
+            return false
+        }
     }
 
     private func analyzeSecretGrantOptions(_ grant: ServiceFileGrant, secret: ComposeSecret, location: String) -> [CompatibilityIssue] {

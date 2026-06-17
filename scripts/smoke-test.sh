@@ -7884,8 +7884,12 @@ services:
       mode: ""
       endpoint_mode: ""
       placement: {}
-      update_config: {}
-      rollback_config: {}
+      restart_policy:
+        condition: ""
+      update_config:
+        failure_action: ""
+      rollback_config:
+        failure_action: ""
 YAML
 deploy_empty_orchestration_plan="$(cd "$deploy_empty_orchestration_dir" && "$binary" plan)"
 grep -F "deploy_empty_orchestration-web-1" <<<"$deploy_empty_orchestration_plan" >/dev/null

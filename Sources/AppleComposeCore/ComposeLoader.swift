@@ -1770,7 +1770,7 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("\(location) must be a mapping")
         }
         try rejectUnknownKeys(in: map, known: ["condition", "delay", "max_attempts", "window"], location: location)
-        _ = try parseOptionalEnum(map["condition"], allowed: ["any", "none", "on-failure"], location: "\(location).condition")
+        _ = try parseOptionalEnumAllowingExactEmptyDefault(map["condition"], allowed: ["any", "none", "on-failure"], location: "\(location).condition")
         _ = try parseOptionalDuration(map["delay"], location: "\(location).delay")
         _ = try parseOptionalNonNegativeInt(map["max_attempts"], location: "\(location).max_attempts")
         _ = try parseOptionalDuration(map["window"], location: "\(location).window")
@@ -1788,7 +1788,7 @@ struct ComposeParser {
         _ = try parseOptionalNonNegativeInt(map["parallelism"], location: "\(location).parallelism")
         _ = try parseOptionalDuration(map["delay"], location: "\(location).delay")
         _ = try parseOptionalDuration(map["monitor"], location: "\(location).monitor")
-        _ = try parseOptionalEnum(map["failure_action"], allowed: allowedFailureActions, location: "\(location).failure_action")
+        _ = try parseOptionalEnumAllowingExactEmptyDefault(map["failure_action"], allowed: allowedFailureActions, location: "\(location).failure_action")
         _ = try parseOptionalFailureRatio(map["max_failure_ratio"], location: "\(location).max_failure_ratio")
         _ = try parseOptionalEnum(map["order"], allowed: ["start-first", "stop-first"], location: "\(location).order")
     }
@@ -3259,6 +3259,20 @@ struct ComposeParser {
 
     private func parseOptionalEnum(_ node: YAMLValue?, allowed: Set<String>, location: String) throws -> String? {
         guard let value = try parseOptionalString(node, location: location) else {
+            return nil
+        }
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard allowed.contains(normalized) else {
+            throw ComposeError.invalidCompose("\(location) must be one of: \(allowed.sorted().joined(separator: ", "))")
+        }
+        return value
+    }
+
+    private func parseOptionalEnumAllowingExactEmptyDefault(_ node: YAMLValue?, allowed: Set<String>, location: String) throws -> String? {
+        guard let value = try parseOptionalString(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        guard !value.isEmpty else {
             return nil
         }
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
