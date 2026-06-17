@@ -2451,13 +2451,22 @@ grep -F "provider.type must be a string" /tmp/apple-compose-bad-provider-type-nu
 provider_empty_type_dir="$tmpdir/provider-empty-type"
 mkdir -p "$provider_empty_type_dir"
 cat > "$provider_empty_type_dir/compose.yaml" <<'YAML'
+name: provider_empty_type
 services:
   database:
+    image: busybox
     provider:
       type: ""
+      options: {}
 YAML
 (cd "$provider_empty_type_dir" && "$binary" config >/tmp/apple-compose-provider-empty-type.out)
 grep -F "type: ''" /tmp/apple-compose-provider-empty-type.out >/dev/null
+provider_empty_type_plan="$(cd "$provider_empty_type_dir" && "$binary" plan)"
+grep -F "provider_empty_type-database-1" <<<"$provider_empty_type_plan" >/dev/null
+if grep -F "[error]" <<<"$provider_empty_type_plan" >/dev/null; then
+  echo "expected empty provider metadata to be accepted as default behavior" >&2
+  exit 1
+fi
 
 bad_provider_key_dir="$tmpdir/bad-provider-key"
 mkdir -p "$bad_provider_key_dir"
@@ -2491,6 +2500,27 @@ services:
           - false
 YAML
 (cd "$provider_options_dir" && "$binary" config >/tmp/apple-compose-provider-options.out)
+
+provider_gap_dir="$tmpdir/provider-gap"
+mkdir -p "$provider_gap_dir"
+cat > "$provider_gap_dir/compose.yaml" <<'YAML'
+services:
+  database:
+    provider:
+      type: awesomecloud
+      options:
+        engine: mysql
+YAML
+if (cd "$provider_gap_dir" && "$binary" up --dry-run >/tmp/apple-compose-provider-gap.out 2>&1); then
+  echo "expected strict up to reject active provider delegation" >&2
+  exit 1
+fi
+grep -F "services.database: provider" /tmp/apple-compose-provider-gap.out >/dev/null
+grep -F "provider delegation" /tmp/apple-compose-provider-gap.out >/dev/null
+if grep -F "services.database: image/build" /tmp/apple-compose-provider-gap.out >/dev/null; then
+  echo "expected active provider services not to require image/build" >&2
+  exit 1
+fi
 
 bad_provider_options_shape_dir="$tmpdir/bad-provider-options-shape"
 mkdir -p "$bad_provider_options_shape_dir"

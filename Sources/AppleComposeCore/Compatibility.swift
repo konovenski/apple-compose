@@ -322,7 +322,7 @@ public struct CompatibilityAnalyzer {
         var issues: [CompatibilityIssue] = []
         let location = "services.\(service.name)"
 
-        if service.image == nil && service.build == nil {
+        if service.image == nil && service.build == nil && !hasActiveProvider(map["provider"]) {
             issues.append(.init(.error, location, "image/build", "A service needs either image or build to run."))
         }
         if service.command?.isEmptyOverride == true {
@@ -1053,6 +1053,8 @@ public struct CompatibilityAnalyzer {
             return isEmptyStringValue(value)
         case "logging":
             return isLoggingNoopValue(value)
+        case "provider":
+            return isProviderNoopValue(value)
         default:
             return false
         }
@@ -1077,6 +1079,36 @@ public struct CompatibilityAnalyzer {
         default:
             return false
         }
+    }
+
+    private func isProviderNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .map(let map):
+            guard let type = map["type"], isEmptyStringValue(type) else {
+                return false
+            }
+            return map.allSatisfy { key, value in
+                switch key {
+                case "type":
+                    return isEmptyStringValue(value)
+                case "options":
+                    return isEmptyNoopValue(value)
+                default:
+                    return key.hasPrefix("x-")
+                }
+            }
+        case .reset(let value), .overrideValue(let value):
+            return isProviderNoopValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func hasActiveProvider(_ value: YAMLValue?) -> Bool {
+        guard let value else {
+            return false
+        }
+        return !isEmptyNoopValue(value) && !isProviderNoopValue(value)
     }
 
     private func isBuildEmptyStringNoop(_ key: String, _ value: YAMLValue) -> Bool {
