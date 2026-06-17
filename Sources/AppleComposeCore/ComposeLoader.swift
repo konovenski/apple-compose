@@ -1341,7 +1341,7 @@ struct ComposeParser {
             if let published {
                 try validatePortValue(published, location: "Service '\(serviceName)' ports[\(index)].published", allowRange: true, allowZero: true)
             }
-            _ = try parseOptionalString(map["mode"], location: "Service '\(serviceName)' ports[\(index)].mode", allowEmpty: true)
+            _ = try parseOptionalExactEmptyUnsetStringValue(map["mode"], location: "Service '\(serviceName)' ports[\(index)].mode")
             let protocolName = try parseOptionalPortProtocol(map["protocol"], location: "Service '\(serviceName)' ports[\(index)].protocol")
             let hostIP = try parseOptionalPortHostIP(map["host_ip"], location: "Service '\(serviceName)' ports[\(index)].host_ip")
             return PortSpec(
@@ -1350,8 +1350,8 @@ struct ComposeParser {
                 published: published,
                 hostIP: hostIP,
                 protocolName: protocolName,
-                appProtocol: try parseOptionalExactNonEmptyString(map["app_protocol"], location: "Service '\(serviceName)' ports[\(index)].app_protocol"),
-                name: try parseOptionalExactNonEmptyString(map["name"], location: "Service '\(serviceName)' ports[\(index)].name")
+                appProtocol: try parseOptionalExactEmptyUnsetStringValue(map["app_protocol"], location: "Service '\(serviceName)' ports[\(index)].app_protocol"),
+                name: try parseOptionalExactEmptyUnsetStringValue(map["name"], location: "Service '\(serviceName)' ports[\(index)].name")
             )
         }
     }
@@ -1366,20 +1366,28 @@ struct ComposeParser {
     }
 
     private func parseOptionalPortProtocol(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let protocolName = try parseOptionalString(node, location: location, allowEmpty: true) else {
+        guard let protocolName = try parseOptionalExactEmptyUnsetStringValue(node, location: location) else {
             return nil
         }
-        return protocolName.isEmpty ? nil : protocolName
+        return protocolName
     }
 
     private func parseOptionalPortPublished(_ node: YAMLValue?, location: String) throws -> String? {
-        if case .string(let value)? = node, value.isEmpty {
+        guard let node else { return nil }
+        if case .null = node {
+            throw ComposeError.invalidCompose("\(location) must be a string or integer value")
+        }
+        if case .string(let value) = node, value.isEmpty {
             return nil
         }
         return try parseOptionalStringOrInt(node, location: location)
     }
 
     private func parseOptionalPortHostIP(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let node else { return nil }
+        if case .null = node {
+            throw ComposeError.invalidCompose("\(location) must be a string")
+        }
         guard let hostIP = try parseOptionalString(node, location: location) else {
             return nil
         }

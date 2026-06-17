@@ -7201,6 +7201,38 @@ if (cd "$bad_port_published_shape_dir" && "$binary" config >/tmp/apple-compose-b
 fi
 grep -F "ports[0].published must be a string or integer value" /tmp/apple-compose-bad-port-published-shape.out >/dev/null
 
+bad_port_published_null_dir="$tmpdir/bad-port-published-null"
+mkdir -p "$bad_port_published_null_dir"
+cat > "$bad_port_published_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        published:
+YAML
+if (cd "$bad_port_published_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-published-null.out 2>&1); then
+  echo "expected null long-form port published value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].published must be a string or integer value" /tmp/apple-compose-bad-port-published-null.out >/dev/null
+
+bad_port_protocol_null_dir="$tmpdir/bad-port-protocol-null"
+mkdir -p "$bad_port_protocol_null_dir"
+cat > "$bad_port_protocol_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        protocol:
+YAML
+if (cd "$bad_port_protocol_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-protocol-null.out 2>&1); then
+  echo "expected null long-form port protocol value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].protocol must be a string" /tmp/apple-compose-bad-port-protocol-null.out >/dev/null
+
 bad_port_host_ip_value_dir="$tmpdir/bad-port-host-ip-value"
 mkdir -p "$bad_port_host_ip_value_dir"
 cat > "$bad_port_host_ip_value_dir/compose.yaml" <<'YAML'
@@ -7218,6 +7250,22 @@ if (cd "$bad_port_host_ip_value_dir" && "$binary" config >/tmp/apple-compose-bad
 fi
 grep -F "ports[0].host_ip must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-port-host-ip-value.out >/dev/null
 
+bad_port_host_ip_null_dir="$tmpdir/bad-port-host-ip-null"
+mkdir -p "$bad_port_host_ip_null_dir"
+cat > "$bad_port_host_ip_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        host_ip:
+YAML
+if (cd "$bad_port_host_ip_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-host-ip-null.out 2>&1); then
+  echo "expected null long-form port host_ip value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].host_ip must be a string" /tmp/apple-compose-bad-port-host-ip-null.out >/dev/null
+
 bad_port_mode_shape_dir="$tmpdir/bad-port-mode-shape"
 mkdir -p "$bad_port_mode_shape_dir"
 cat > "$bad_port_mode_shape_dir/compose.yaml" <<'YAML'
@@ -7233,6 +7281,54 @@ if (cd "$bad_port_mode_shape_dir" && "$binary" config >/tmp/apple-compose-bad-po
   exit 1
 fi
 grep -F "ports[0].mode must be a string" /tmp/apple-compose-bad-port-mode-shape.out >/dev/null
+
+bad_port_mode_null_dir="$tmpdir/bad-port-mode-null"
+mkdir -p "$bad_port_mode_null_dir"
+cat > "$bad_port_mode_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        mode:
+YAML
+if (cd "$bad_port_mode_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-mode-null.out 2>&1); then
+  echo "expected null long-form port mode value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].mode must be a string" /tmp/apple-compose-bad-port-mode-null.out >/dev/null
+
+bad_port_name_null_dir="$tmpdir/bad-port-name-null"
+mkdir -p "$bad_port_name_null_dir"
+cat > "$bad_port_name_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        name:
+YAML
+if (cd "$bad_port_name_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-name-null.out 2>&1); then
+  echo "expected null long-form port name value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].name must be a string" /tmp/apple-compose-bad-port-name-null.out >/dev/null
+
+bad_port_app_protocol_null_dir="$tmpdir/bad-port-app-protocol-null"
+mkdir -p "$bad_port_app_protocol_null_dir"
+cat > "$bad_port_app_protocol_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        app_protocol:
+YAML
+if (cd "$bad_port_app_protocol_null_dir" && "$binary" config >/tmp/apple-compose-bad-port-app-protocol-null.out 2>&1); then
+  echo "expected null long-form port app_protocol value to be rejected" >&2
+  exit 1
+fi
+grep -F "ports[0].app_protocol must be a string" /tmp/apple-compose-bad-port-app-protocol-null.out >/dev/null
 
 port_custom_mode_dir="$tmpdir/port-custom-mode"
 mkdir -p "$port_custom_mode_dir"
