@@ -9992,6 +9992,7 @@ services:
         FROM busybox
       cache_from: []
       cache_to: []
+      entitlements: []
 YAML
 empty_build_cache_plan="$(cd "$empty_build_cache_dir" && "$binary" plan)"
 grep -F "empty_build_cache-web-1" <<<"$empty_build_cache_plan" >/dev/null
@@ -10001,6 +10002,51 @@ if grep -F "services.web.build: cache_from" <<<"$empty_build_cache_plan" >/dev/n
 fi
 if grep -F "services.web.build: cache_to" <<<"$empty_build_cache_plan" >/dev/null; then
   echo "expected empty cache_to to be accepted as a no-op" >&2
+  exit 1
+fi
+if grep -F "services.web.build: entitlements" <<<"$empty_build_cache_plan" >/dev/null; then
+  echo "expected empty entitlements to be accepted as a no-op" >&2
+  exit 1
+fi
+
+empty_build_list_entries_dir="$tmpdir/empty-build-list-entries"
+mkdir -p "$empty_build_list_entries_dir"
+cat > "$empty_build_list_entries_dir/compose.yaml" <<'YAML'
+name: empty_build_list_entries
+services:
+  web:
+    image: example/cache
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM busybox
+      cache_from:
+        - ""
+      cache_to:
+        - ""
+      entitlements:
+        - ""
+      tags:
+        - ""
+        - example/cache:dev
+YAML
+empty_build_list_entries_plan="$(cd "$empty_build_list_entries_dir" && "$binary" plan)"
+grep -F "empty_build_list_entries-web-1" <<<"$empty_build_list_entries_plan" >/dev/null
+grep -F "example/cache:dev" <<<"$empty_build_list_entries_plan" >/dev/null
+if grep -F "services.web.build: cache_from" <<<"$empty_build_list_entries_plan" >/dev/null; then
+  echo "expected empty cache_from entries to be accepted as a no-op" >&2
+  exit 1
+fi
+if grep -F "services.web.build: cache_to" <<<"$empty_build_list_entries_plan" >/dev/null; then
+  echo "expected empty cache_to entries to be accepted as a no-op" >&2
+  exit 1
+fi
+if grep -F "services.web.build: entitlements" <<<"$empty_build_list_entries_plan" >/dev/null; then
+  echo "expected empty entitlement entries to be accepted as a no-op" >&2
+  exit 1
+fi
+if grep -F "container image tag example/cache ''" <<<"$empty_build_list_entries_plan" >/dev/null; then
+  echo "expected empty build tags to be omitted" >&2
   exit 1
 fi
 

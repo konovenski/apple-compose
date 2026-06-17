@@ -730,10 +730,10 @@ public struct CompatibilityAnalyzer {
             if !build.ulimits.isEmpty {
                 issues.append(.init(.error, "\(location).build", "ulimits", "Compose build ulimits are not exposed by Apple container build."))
             }
-            if let cacheFrom = buildMap["cache_from"], !isEmptyNoopValue(cacheFrom) {
+            if let cacheFrom = buildMap["cache_from"], !isEmptyNoopValue(cacheFrom), !isEmptyStringArray(cacheFrom) {
                 issues.append(.init(.warning, "\(location).build", "cache_from", "Apple container build does not expose cache import flags; Compose Build permits unsupported cache sources to be ignored."))
             }
-            if let cacheTo = buildMap["cache_to"], !isEmptyNoopValue(cacheTo) {
+            if let cacheTo = buildMap["cache_to"], !isEmptyNoopValue(cacheTo), !isEmptyStringArray(cacheTo) {
                 issues.append(.init(.warning, "\(location).build", "cache_to", "Apple container build does not expose cache export flags; Compose Build permits unsupported cache targets to be ignored."))
             }
             let unsupportedBuildKeys: [(String, String)] = [
@@ -1141,7 +1141,14 @@ public struct CompatibilityAnalyzer {
     }
 
     private func isBuildEmptyStringNoop(_ key: String, _ value: YAMLValue) -> Bool {
-        key == "isolation" && isEmptyStringValue(value)
+        switch key {
+        case "isolation":
+            return isEmptyStringValue(value)
+        case "entitlements":
+            return isEmptyStringArray(value)
+        default:
+            return false
+        }
     }
 
     private func cpuControlMessage(for key: String) -> String {

@@ -300,7 +300,7 @@ public struct ComposePlanner {
 
     private func buildFallbackCommand(for service: ComposeService, project: ComposeProject, containerBinary: String) throws -> RuntimeCommand {
         let image = imageName(for: service, project: project)
-        let tags = service.build?.tags.filter { $0 != image } ?? []
+        let tags = service.build?.tags.filter { !$0.isEmpty && $0 != image } ?? []
         let script = """
         image=$1
         container_bin=$2
@@ -398,7 +398,7 @@ public struct ComposePlanner {
 
     private func buildTagCommands(for service: ComposeService, project: ComposeProject, containerBinary: String) -> [RuntimeCommand] {
         (service.build?.tags ?? [])
-            .filter { $0 != imageName(for: service, project: project) }
+            .filter { !$0.isEmpty && $0 != imageName(for: service, project: project) }
             .map { RuntimeCommand(containerBinary, ["image", "tag", imageName(for: service, project: project), $0]) }
     }
 

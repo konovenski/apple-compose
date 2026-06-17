@@ -983,16 +983,16 @@ struct ComposeParser {
             shmSize: nonZeroByteValue(try parseOptionalByteValue(map["shm_size"], location: "Service '\(serviceName)' build.shm_size")),
             ulimits: try parseUlimits(map["ulimits"], location: "Service '\(serviceName)' build.ulimits"),
             secrets: try parseFileGrants(map["secrets"], defaultTargetPrefix: "", serviceName: serviceName, location: "build.secrets"),
-            tags: try parseStringList(map["tags"], location: "Service '\(serviceName)' build.tags")
+            tags: try parseStringList(map["tags"], location: "Service '\(serviceName)' build.tags", allowEmpty: true).filter { !$0.isEmpty }
         )
     }
 
     private func parseUnsupportedBuildShapes(_ map: [String: YAMLValue], serviceName: String) throws {
         let location = "Service '\(serviceName)' build"
         _ = try parseNameValueMapOrStringList(map["additional_contexts"], location: "\(location).additional_contexts")
-        _ = try parseStringList(map["cache_from"], location: "\(location).cache_from")
-        _ = try parseStringList(map["cache_to"], location: "\(location).cache_to")
-        _ = try parseStringList(map["entitlements"], location: "\(location).entitlements")
+        _ = try parseStringList(map["cache_from"], location: "\(location).cache_from", allowEmpty: true)
+        _ = try parseStringList(map["cache_to"], location: "\(location).cache_to", allowEmpty: true)
+        _ = try parseStringList(map["entitlements"], location: "\(location).entitlements", allowEmpty: true)
         try parseExtraHosts(map["extra_hosts"], location: "\(location).extra_hosts")
         _ = try parseOptionalUnsettableString(map["isolation"], location: "\(location).isolation")
         try parseBuildSSH(map["ssh"], location: "\(location).ssh")
