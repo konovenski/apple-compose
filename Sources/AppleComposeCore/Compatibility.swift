@@ -1452,9 +1452,9 @@ public struct CompatibilityAnalyzer {
 
     private func composeBooleanString(_ value: String) -> Bool? {
         switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "true", "t", "1":
+        case "true", "yes", "y", "on":
             return true
-        case "false", "f", "0":
+        case "false", "no", "n", "off":
             return false
         default:
             return nil

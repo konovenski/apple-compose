@@ -1580,6 +1580,61 @@ if grep -F "use_api_socket" <<<"$disabled_boolean_plan" >/dev/null; then
   exit 1
 fi
 
+boolean_alias_dir="$tmpdir/boolean-aliases"
+mkdir -p "$boolean_alias_dir"
+mkdir -p "$boolean_alias_dir/data"
+cat > "$boolean_alias_dir/compose.yaml" <<'YAML'
+name: boolean_aliases
+services:
+  web:
+    image: nginx
+    init: "on"
+    read_only: "yes"
+    tty: "n"
+    stdin_open: "off"
+    privileged: "no"
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM busybox
+      pull: "y"
+      no_cache: "off"
+      privileged: "no"
+    env_file:
+      - path: missing.env
+        required: "no"
+    volumes:
+      - type: bind
+        source: ./data
+        target: /data
+        read_only: "yes"
+        bind:
+          create_host_path: "no"
+    depends_on:
+      db:
+        condition: service_started
+        restart: "off"
+        required: "yes"
+  db:
+    image: postgres
+YAML
+boolean_alias_config="$(cd "$boolean_alias_dir" && "$binary" config)"
+grep -F "init: 'on'" <<<"$boolean_alias_config" >/dev/null
+grep -F "read_only: 'yes'" <<<"$boolean_alias_config" >/dev/null
+grep -F "tty: n" <<<"$boolean_alias_config" >/dev/null
+grep -F "stdin_open: 'off'" <<<"$boolean_alias_config" >/dev/null
+grep -F "privileged: 'no'" <<<"$boolean_alias_config" >/dev/null
+grep -F "pull: y" <<<"$boolean_alias_config" >/dev/null
+grep -F "no_cache: 'off'" <<<"$boolean_alias_config" >/dev/null
+grep -F "required: 'no'" <<<"$boolean_alias_config" >/dev/null
+grep -F "restart: 'off'" <<<"$boolean_alias_config" >/dev/null
+grep -F "required: 'yes'" <<<"$boolean_alias_config" >/dev/null
+boolean_alias_plan="$(cd "$boolean_alias_dir" && "$binary" plan)"
+if grep -F "privileged" <<<"$boolean_alias_plan" | grep -F "no Apple" >/dev/null; then
+  echo "expected privileged=no aliases to be accepted as default behavior" >&2
+  exit 1
+fi
+
 bad_boolean_dir="$tmpdir/bad-booleans"
 mkdir -p "$bad_boolean_dir"
 cat > "$bad_boolean_dir/compose.yaml" <<'YAML'
@@ -1610,6 +1665,20 @@ if (cd "$bad_service_boolean_shape_dir" && "$binary" config >/tmp/apple-compose-
   exit 1
 fi
 grep -F "read_only must be a boolean value or boolean string" /tmp/apple-compose-bad-service-boolean-shape.out >/dev/null
+
+bad_numeric_boolean_string_dir="$tmpdir/bad-numeric-boolean-string"
+mkdir -p "$bad_numeric_boolean_string_dir"
+cat > "$bad_numeric_boolean_string_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    init: "1"
+YAML
+if (cd "$bad_numeric_boolean_string_dir" && "$binary" config >/tmp/apple-compose-bad-numeric-boolean-string.out 2>&1); then
+  echo "expected numeric boolean strings to be rejected" >&2
+  exit 1
+fi
+grep -F "init must be a boolean value or boolean string" /tmp/apple-compose-bad-numeric-boolean-string.out >/dev/null
 
 bad_attach_boolean_shape_dir="$tmpdir/bad-attach-boolean-shape"
 mkdir -p "$bad_attach_boolean_shape_dir"
@@ -4580,6 +4649,27 @@ if (cd "$bad_network_internal_shape_dir" && "$binary" config >/tmp/apple-compose
 fi
 grep -F "networks.appnet.internal must be a boolean value or boolean string" /tmp/apple-compose-bad-network-internal-shape.out >/dev/null
 
+network_boolean_alias_dir="$tmpdir/network-boolean-aliases"
+mkdir -p "$network_boolean_alias_dir"
+cat > "$network_boolean_alias_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    networks:
+      - appnet
+networks:
+  appnet:
+    attachable: "yes"
+    internal: "no"
+    enable_ipv4: "on"
+    enable_ipv6: "off"
+YAML
+(cd "$network_boolean_alias_dir" && "$binary" config >/tmp/apple-compose-network-boolean-aliases.out)
+grep -F "attachable: 'yes'" /tmp/apple-compose-network-boolean-aliases.out >/dev/null
+grep -F "internal: 'no'" /tmp/apple-compose-network-boolean-aliases.out >/dev/null
+grep -F "enable_ipv4: 'on'" /tmp/apple-compose-network-boolean-aliases.out >/dev/null
+grep -F "enable_ipv6: 'off'" /tmp/apple-compose-network-boolean-aliases.out >/dev/null
+
 bad_network_attachable_shape_dir="$tmpdir/bad-network-attachable-shape"
 mkdir -p "$bad_network_attachable_shape_dir"
 cat > "$bad_network_attachable_shape_dir/compose.yaml" <<'YAML'
@@ -4590,10 +4680,10 @@ services:
       - appnet
 networks:
   appnet:
-    attachable: "yes"
+    attachable: "maybe"
 YAML
 if (cd "$bad_network_attachable_shape_dir" && "$binary" config >/tmp/apple-compose-bad-network-attachable-shape.out 2>&1); then
-  echo "expected string network attachable flag to be rejected" >&2
+  echo "expected invalid network attachable flag string to be rejected" >&2
   exit 1
 fi
 grep -F "networks.appnet.attachable must be a boolean value or boolean string" /tmp/apple-compose-bad-network-attachable-shape.out >/dev/null
@@ -4608,7 +4698,7 @@ services:
       - appnet
 networks:
   appnet:
-    enable_ipv4: "off"
+    enable_ipv4: "maybe"
 YAML
 if (cd "$bad_network_enable_ipv4_shape_dir" && "$binary" config >/tmp/apple-compose-bad-network-enable-ipv4-shape.out 2>&1); then
   echo "expected invalid network enable_ipv4 flag string to be rejected" >&2
