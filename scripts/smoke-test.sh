@@ -2477,6 +2477,104 @@ if (cd "$bad_top_models_missing_model_dir" && "$binary" config >/tmp/apple-compo
 fi
 grep -F "models.llm.model is required" /tmp/apple-compose-bad-top-models-missing-model.out >/dev/null
 
+top_models_empty_values_dir="$tmpdir/top-models-empty-values"
+mkdir -p "$top_models_empty_values_dir"
+cat > "$top_models_empty_values_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ""
+    name: ""
+    runtime_flags:
+      - ""
+services:
+  web:
+    image: nginx
+    models:
+      llm:
+        endpoint_var: ""
+        model_var: ""
+YAML
+(cd "$top_models_empty_values_dir" && "$binary" config >/tmp/apple-compose-top-models-empty-values.out)
+grep -F "models:" /tmp/apple-compose-top-models-empty-values.out >/dev/null
+grep -F "endpoint_var: ''" /tmp/apple-compose-top-models-empty-values.out >/dev/null
+grep -F "model_var: ''" /tmp/apple-compose-top-models-empty-values.out >/dev/null
+grep -F "runtime_flags:" /tmp/apple-compose-top-models-empty-values.out >/dev/null
+
+bad_top_models_model_null_dir="$tmpdir/bad-top-models-model-null"
+mkdir -p "$bad_top_models_model_null_dir"
+cat > "$bad_top_models_model_null_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model:
+services:
+  web:
+    image: nginx
+    models:
+      - llm
+YAML
+if (cd "$bad_top_models_model_null_dir" && "$binary" config >/tmp/apple-compose-bad-top-models-model-null.out 2>&1); then
+  echo "expected null top-level model model to be rejected" >&2
+  exit 1
+fi
+grep -F "models.llm.model must be a string" /tmp/apple-compose-bad-top-models-model-null.out >/dev/null
+
+bad_top_models_name_null_dir="$tmpdir/bad-top-models-name-null"
+mkdir -p "$bad_top_models_name_null_dir"
+cat > "$bad_top_models_name_null_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ai/smollm2
+    name:
+services:
+  web:
+    image: nginx
+    models:
+      - llm
+YAML
+if (cd "$bad_top_models_name_null_dir" && "$binary" config >/tmp/apple-compose-bad-top-models-name-null.out 2>&1); then
+  echo "expected null top-level model name to be rejected" >&2
+  exit 1
+fi
+grep -F "models.llm.name must be a string" /tmp/apple-compose-bad-top-models-name-null.out >/dev/null
+
+bad_service_models_endpoint_null_dir="$tmpdir/bad-service-models-endpoint-null"
+mkdir -p "$bad_service_models_endpoint_null_dir"
+cat > "$bad_service_models_endpoint_null_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ai/smollm2
+services:
+  web:
+    image: nginx
+    models:
+      llm:
+        endpoint_var:
+YAML
+if (cd "$bad_service_models_endpoint_null_dir" && "$binary" config >/tmp/apple-compose-bad-service-models-endpoint-null.out 2>&1); then
+  echo "expected null service model endpoint_var to be rejected" >&2
+  exit 1
+fi
+grep -F "Service 'web' models.llm.endpoint_var must be a string" /tmp/apple-compose-bad-service-models-endpoint-null.out >/dev/null
+
+bad_service_models_model_var_null_dir="$tmpdir/bad-service-models-model-var-null"
+mkdir -p "$bad_service_models_model_var_null_dir"
+cat > "$bad_service_models_model_var_null_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ai/smollm2
+services:
+  web:
+    image: nginx
+    models:
+      llm:
+        model_var:
+YAML
+if (cd "$bad_service_models_model_var_null_dir" && "$binary" config >/tmp/apple-compose-bad-service-models-model-var-null.out 2>&1); then
+  echo "expected null service model model_var to be rejected" >&2
+  exit 1
+fi
+grep -F "Service 'web' models.llm.model_var must be a string" /tmp/apple-compose-bad-service-models-model-var-null.out >/dev/null
+
 bad_top_models_context_string_dir="$tmpdir/bad-top-models-context-string"
 mkdir -p "$bad_top_models_context_string_dir"
 cat > "$bad_top_models_context_string_dir/compose.yaml" <<'YAML'

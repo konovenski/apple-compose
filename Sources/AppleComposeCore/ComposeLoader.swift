@@ -766,13 +766,13 @@ struct ComposeParser {
                 known: ["context_size", "model", "name", "runtime_flags"],
                 location: "models.\(name)"
             )
-            guard let model = try parseOptionalString(modelMap["model"], location: "models.\(name).model"),
-                  !model.isEmpty else {
+            guard let modelNode = modelMap["model"] else {
                 throw ComposeError.invalidCompose("models.\(name).model is required")
             }
-            _ = try parseOptionalString(modelMap["name"], location: "models.\(name).name")
+            _ = try parseRequiredStringValue(modelNode, location: "models.\(name).model")
+            _ = try parseOptionalStringValue(modelMap["name"], location: "models.\(name).name")
             _ = try parseOptionalLiteralInt(modelMap["context_size"], location: "models.\(name).context_size")
-            _ = try parseStringList(modelMap["runtime_flags"], location: "models.\(name).runtime_flags")
+            _ = try parseStringList(modelMap["runtime_flags"], location: "models.\(name).runtime_flags", allowEmpty: true)
         }
         return modelNames
     }
@@ -2279,8 +2279,8 @@ struct ComposeParser {
                 known: ["endpoint_var", "model_var"],
                 location: "\(location).\(modelName)"
             )
-            _ = try parseOptionalString(modelMap["endpoint_var"], location: "\(location).\(modelName).endpoint_var")
-            _ = try parseOptionalString(modelMap["model_var"], location: "\(location).\(modelName).model_var")
+            _ = try parseOptionalStringValue(modelMap["endpoint_var"], location: "\(location).\(modelName).endpoint_var")
+            _ = try parseOptionalStringValue(modelMap["model_var"], location: "\(location).\(modelName).model_var")
         }
     }
 
@@ -3242,6 +3242,11 @@ struct ComposeParser {
         default:
             throw ComposeError.invalidCompose("\(location) must be a string")
         }
+    }
+
+    private func parseOptionalStringValue(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let node else { return nil }
+        return try parseRequiredStringValue(node, location: location)
     }
 
     private func parseOptionalExactNonEmptyString(_ node: YAMLValue?, location: String) throws -> String? {
