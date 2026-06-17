@@ -4838,6 +4838,22 @@ fi
 grep -F "services.app: network_mode" /tmp/apple-compose-bad-network-mode.out >/dev/null
 grep -F "Only network_mode: none" /tmp/apple-compose-bad-network-mode.out >/dev/null
 
+network_mode_whitespace_dir="$tmpdir/network-mode-whitespace"
+mkdir -p "$network_mode_whitespace_dir"
+cat > "$network_mode_whitespace_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    network_mode: "   "
+YAML
+(cd "$network_mode_whitespace_dir" && "$binary" config >/tmp/apple-compose-network-mode-whitespace-config.out)
+if (cd "$network_mode_whitespace_dir" && "$binary" up --dry-run >/tmp/apple-compose-network-mode-whitespace.out 2>&1); then
+  echo "expected whitespace network_mode to be treated as an active unsupported value" >&2
+  exit 1
+fi
+grep -F "services.app: network_mode" /tmp/apple-compose-network-mode-whitespace.out >/dev/null
+grep -F "Only network_mode: none" /tmp/apple-compose-network-mode-whitespace.out >/dev/null
+
 bad_network_mode_ports_dir="$tmpdir/bad-network-mode-ports"
 mkdir -p "$bad_network_mode_ports_dir"
 cat > "$bad_network_mode_ports_dir/compose.yaml" <<'YAML'
@@ -5019,6 +5035,22 @@ if (cd "$bad_network_mode_combo_dir" && "$binary" config >/tmp/apple-compose-bad
 fi
 
 grep -F "Service 'app' cannot set both network_mode and networks" /tmp/apple-compose-bad-network-mode-combo.out >/dev/null
+
+bad_network_mode_whitespace_combo_dir="$tmpdir/bad-network-mode-whitespace-combo"
+mkdir -p "$bad_network_mode_whitespace_combo_dir"
+cat > "$bad_network_mode_whitespace_combo_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    network_mode: "   "
+    networks:
+      - default
+YAML
+if (cd "$bad_network_mode_whitespace_combo_dir" && "$binary" config >/tmp/apple-compose-bad-network-mode-whitespace-combo.out 2>&1); then
+  echo "expected config to reject whitespace network_mode with networks" >&2
+  exit 1
+fi
+grep -F "Service 'app' cannot set both network_mode and networks" /tmp/apple-compose-bad-network-mode-whitespace-combo.out >/dev/null
 
 bad_external_resource_dir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$include_dir" "$envvars_dir" "$disabled_env_dir" "$project_name_dir" "$external_resource_dir" "$bad_external_resource_dir"' EXIT
@@ -7898,6 +7930,33 @@ if grep -F "[error]" <<<"$deploy_empty_orchestration_plan" >/dev/null; then
   exit 1
 fi
 
+deploy_whitespace_orchestration_dir="$tmpdir/deploy-whitespace-orchestration"
+mkdir -p "$deploy_whitespace_orchestration_dir"
+cat > "$deploy_whitespace_orchestration_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    deploy:
+      mode: "   "
+      endpoint_mode: "   "
+      restart_policy:
+        condition: "   "
+      update_config:
+        failure_action: "   "
+      rollback_config:
+        failure_action: "   "
+YAML
+(cd "$deploy_whitespace_orchestration_dir" && "$binary" config >/tmp/apple-compose-deploy-whitespace-orchestration-config.out)
+if (cd "$deploy_whitespace_orchestration_dir" && "$binary" up --dry-run >/tmp/apple-compose-deploy-whitespace-orchestration.out 2>&1); then
+  echo "expected whitespace deploy orchestration settings to be treated as active gaps" >&2
+  exit 1
+fi
+grep -F "services.web.deploy: mode" /tmp/apple-compose-deploy-whitespace-orchestration.out >/dev/null
+grep -F "services.web.deploy: endpoint_mode" /tmp/apple-compose-deploy-whitespace-orchestration.out >/dev/null
+grep -F "services.web.deploy.restart_policy: condition" /tmp/apple-compose-deploy-whitespace-orchestration.out >/dev/null
+grep -F "services.web.deploy: update_config" /tmp/apple-compose-deploy-whitespace-orchestration.out >/dev/null
+grep -F "services.web.deploy: rollback_config" /tmp/apple-compose-deploy-whitespace-orchestration.out >/dev/null
+
 bad_deploy_mode_dir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$include_dir" "$envvars_dir" "$disabled_env_dir" "$project_name_dir" "$selection_dir" "$pull_policy_dir" "$time_pull_dir" "$bad_env_format_dir" "$build_platform_dir" "$build_platform_mismatch_dir" "$random_port_dir" "$port_range_dir" "$scaled_port_dir" "$bad_scale_dir" "$bad_duration_dir" "$bad_deploy_resources_dir" "$deploy_reservation_dir" "$deploy_metadata_dir" "$bad_deploy_mode_dir"' EXIT
 cat > "$bad_deploy_mode_dir/compose.yaml" <<'YAML'
@@ -10170,6 +10229,22 @@ if grep -F "restart policies" <<<"$restart_empty_plan" >/dev/null; then
   echo "expected empty restart string to be accepted as unset/default behavior" >&2
   exit 1
 fi
+
+restart_whitespace_dir="$tmpdir/restart-whitespace"
+mkdir -p "$restart_whitespace_dir"
+cat > "$restart_whitespace_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    restart: "   "
+YAML
+(cd "$restart_whitespace_dir" && "$binary" config >/tmp/apple-compose-restart-whitespace-config.out)
+if (cd "$restart_whitespace_dir" && "$binary" up --dry-run >/tmp/apple-compose-restart-whitespace.out 2>&1); then
+  echo "expected whitespace restart string to be treated as an active unsupported value" >&2
+  exit 1
+fi
+grep -F "services.web: restart" /tmp/apple-compose-restart-whitespace.out >/dev/null
+grep -F "restart policies" /tmp/apple-compose-restart-whitespace.out >/dev/null
 
 bad_restart_shape_dir="$tmpdir/bad-restart-shape"
 mkdir -p "$bad_restart_shape_dir"

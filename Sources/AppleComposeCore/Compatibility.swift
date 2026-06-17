@@ -374,9 +374,11 @@ public struct CompatibilityAnalyzer {
             issues.append(.init(.warning, location, "attach", "apple-compose runs containers detached and does not attach log streams during up."))
         }
         if let restart = map["restart"] {
-            let policy = exactString(restart)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
-            if !policy.isEmpty && policy != "no" {
-                issues.append(.init(.error, location, "restart", "Apple container CLI 1.0.0 does not expose Docker restart policies. Only Compose's explicit no/default restart policy can be represented."))
+            if let rawPolicy = exactString(restart), !rawPolicy.isEmpty {
+                let policy = rawPolicy.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if policy != "no" {
+                    issues.append(.init(.error, location, "restart", "Apple container CLI 1.0.0 does not expose Docker restart policies. Only Compose's explicit no/default restart policy can be represented."))
+                }
             }
         }
         if let privileged = map["privileged"], exactBool(privileged) != false {
@@ -406,7 +408,7 @@ public struct CompatibilityAnalyzer {
         if let healthcheck = map["healthcheck"], !isNoopHealthcheck(healthcheck), !isDisabledHealthcheck(healthcheck) {
             issues.append(.init(.error, location, "healthcheck", "Apple container CLI has no container healthcheck API; depends_on health conditions cannot be honored. Disabled healthcheck forms are accepted."))
         }
-        if let networkMode = map["network_mode"], !isEmptyStringValue(networkMode) {
+        if let networkMode = map["network_mode"], !isExactEmptyStringValue(networkMode) {
             let mode = networkMode.string?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             if map["networks"] != nil {
                 issues.append(.init(.error, location, "network_mode + networks", "Compose forbids setting both network_mode and networks on the same service."))
@@ -483,12 +485,12 @@ public struct CompatibilityAnalyzer {
                 issues.append(.init(.error, "\(location).deploy", "labels", "Compose deploy labels are service metadata and are not inherited by containers; Apple container CLI has no service object to label."))
             }
             if let modeValue = deploy["mode"],
-               !isEmptyStringValue(modeValue),
+               !isExactEmptyStringValue(modeValue),
                let mode = modeValue.string,
                mode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "replicated" {
                 issues.append(.init(.error, "\(location).deploy", "mode", "Only the default replicated deploy mode can be mapped to local Apple containers. Mode '\(mode)' requires orchestrator semantics."))
             }
-            if let endpointMode = deploy["endpoint_mode"], !isEmptyStringValue(endpointMode) {
+            if let endpointMode = deploy["endpoint_mode"], !isExactEmptyStringValue(endpointMode) {
                 issues.append(.init(.error, "\(location).deploy", "endpoint_mode", "Deploy endpoint modes require Swarm service networking and cannot be applied to local Apple containers."))
             }
             if let placement = deploy["placement"], !isEmptyNoopValue(placement) {
