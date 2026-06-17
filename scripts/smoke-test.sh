@@ -11090,9 +11090,9 @@ fi
 
 grep -F "not_a_compose_section" /tmp/apple-compose-unknown-top.out >/dev/null
 
-bad_network_dir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$bad_network_dir"' EXIT
-cat > "$bad_network_dir/compose.yaml" <<'YAML'
+attachable_network_dir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$attachable_network_dir"' EXIT
+cat > "$attachable_network_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
@@ -11103,15 +11103,19 @@ networks:
     attachable: true
 YAML
 
-if (cd "$bad_network_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-network.out 2>&1); then
-  echo "expected strict up to reject unsupported network attachable flag" >&2
+attachable_network_plan="$(cd "$attachable_network_dir" && "$binary" plan)"
+grep -F "container network create" <<<"$attachable_network_plan" | grep -F "com.docker.compose.network=app" >/dev/null
+if grep -F "[error]" <<<"$attachable_network_plan" >/dev/null; then
+  echo "expected attachable network mode to be accepted by Apple network behavior" >&2
+  exit 1
+fi
+if grep -F -- "--attachable" <<<"$attachable_network_plan" >/dev/null; then
+  echo "expected no nonexistent Apple --attachable flag" >&2
   exit 1
 fi
 
-grep -F "attachable" /tmp/apple-compose-bad-network.out >/dev/null
-
 nested_unknown_dir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$bad_network_dir" "$nested_unknown_dir"' EXIT
+trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$attachable_network_dir" "$nested_unknown_dir"' EXIT
 cat > "$nested_unknown_dir/compose.yaml" <<'YAML'
 services:
   web:
@@ -11131,7 +11135,7 @@ fi
 grep -F "unexpected_port_option" /tmp/apple-compose-nested-unknown.out >/dev/null
 
 nested_warning_dir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$bad_network_dir" "$nested_unknown_dir" "$nested_warning_dir"' EXIT
+trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$attachable_network_dir" "$nested_unknown_dir" "$nested_warning_dir"' EXIT
 cat > "$nested_warning_dir/compose.yaml" <<'YAML'
 services:
   web:
@@ -11357,7 +11361,7 @@ fi
 grep -F "post_start[0].user must be a string" /tmp/apple-compose-bad-hook-numeric-user.out >/dev/null
 
 empty_command_dir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$bad_network_dir" "$nested_unknown_dir" "$nested_warning_dir" "$bad_command_shape_dir" "$bad_hook_command_shape_dir" "$empty_command_dir"' EXIT
+trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$attachable_network_dir" "$nested_unknown_dir" "$nested_warning_dir" "$bad_command_shape_dir" "$bad_hook_command_shape_dir" "$empty_command_dir"' EXIT
 cat > "$empty_command_dir/compose.yaml" <<'YAML'
 services:
   web:
@@ -11374,7 +11378,7 @@ grep -F "command" /tmp/apple-compose-empty-command.out >/dev/null
 grep -F "clear the image command" /tmp/apple-compose-empty-command.out >/dev/null
 
 empty_entrypoint_dir="$(mktemp -d)"
-trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$bad_network_dir" "$nested_unknown_dir" "$nested_warning_dir" "$empty_command_dir" "$empty_entrypoint_dir"' EXIT
+trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$bad_dir" "$cpu_dir" "$privileged_dir" "$unknown_top_dir" "$attachable_network_dir" "$nested_unknown_dir" "$nested_warning_dir" "$empty_command_dir" "$empty_entrypoint_dir"' EXIT
 cat > "$empty_entrypoint_dir/compose.yaml" <<'YAML'
 services:
   web:

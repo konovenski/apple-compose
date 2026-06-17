@@ -148,9 +148,6 @@ public struct CompatibilityAnalyzer {
             let location = "networks.\(name)"
             issues += unknownKeys(in: map, known: knownNetworkKeys, location: location, kind: "network")
             issues += externalResourceIssues(in: map, location: location, kind: "network")
-            if exactBool(map["attachable"]) == true {
-                issues.append(.init(.error, location, "attachable", "Apple container network create does not expose Docker's manually attachable network flag."))
-            }
             if let ipam = map["ipam"]?.map {
                 issues += unknownKeys(in: ipam, known: knownIPAMKeys, location: "\(location).ipam", kind: "network IPAM")
                 if let driver = ipam["driver"],
