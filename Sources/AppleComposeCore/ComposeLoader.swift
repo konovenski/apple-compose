@@ -634,6 +634,9 @@ public struct ComposeLoader {
 
     private func normalizePathList(_ value: YAMLValue, baseDirectory: URL) -> YAMLValue {
         if let string = value.string {
+            guard !string.isEmpty else {
+                return .string(string)
+            }
             return .string(resolvePath(string, relativeTo: baseDirectory).path)
         }
         guard let array = value.array else {
@@ -641,9 +644,15 @@ public struct ComposeLoader {
         }
         return .array(array.map { item in
             if let string = item.string {
+                guard !string.isEmpty else {
+                    return .string(string)
+                }
                 return .string(resolvePath(string, relativeTo: baseDirectory).path)
             }
             if var map = item.map, let path = map["path"]?.string {
+                guard !path.isEmpty else {
+                    return item
+                }
                 map["path"] = .string(resolvePath(path, relativeTo: baseDirectory).path)
                 return .map(map)
             }

@@ -5799,6 +5799,20 @@ if (cd "$bad_label_shape_dir" && "$binary" config >/tmp/apple-compose-bad-label-
 fi
 grep -F "labels.com.example.bad must be a scalar value or null" /tmp/apple-compose-bad-label-shape.out >/dev/null
 
+bad_label_file_empty_dir="$tmpdir/bad-label-file-empty"
+mkdir -p "$bad_label_file_empty_dir"
+cat > "$bad_label_file_empty_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    label_file: ""
+YAML
+if (cd "$bad_label_file_empty_dir" && "$binary" config >/tmp/apple-compose-bad-label-file-empty.out 2>&1); then
+  echo "expected empty label_file path to be rejected" >&2
+  exit 1
+fi
+grep -F "label_file must be a non-empty string" /tmp/apple-compose-bad-label-file-empty.out >/dev/null
+
 bad_label_key_dir="$tmpdir/bad-label-key"
 mkdir -p "$bad_label_key_dir"
 cat > "$bad_label_key_dir/compose.yaml" <<'YAML'
@@ -6206,6 +6220,50 @@ if (cd "$bad_env_shape_dir" && "$binary" config >/tmp/apple-compose-bad-env-shap
   exit 1
 fi
 grep -F "env_file[1].path is required" /tmp/apple-compose-bad-env-shape.out >/dev/null
+
+bad_env_empty_scalar_dir="$tmpdir/bad-env-empty-scalar"
+mkdir -p "$bad_env_empty_scalar_dir"
+cat > "$bad_env_empty_scalar_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    env_file: ""
+YAML
+if (cd "$bad_env_empty_scalar_dir" && "$binary" config >/tmp/apple-compose-bad-env-empty-scalar.out 2>&1); then
+  echo "expected empty env_file scalar path to be rejected" >&2
+  exit 1
+fi
+grep -F "env_file[0] path must not be empty" /tmp/apple-compose-bad-env-empty-scalar.out >/dev/null
+
+bad_env_empty_list_dir="$tmpdir/bad-env-empty-list"
+mkdir -p "$bad_env_empty_list_dir"
+cat > "$bad_env_empty_list_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    env_file:
+      - ""
+YAML
+if (cd "$bad_env_empty_list_dir" && "$binary" config >/tmp/apple-compose-bad-env-empty-list.out 2>&1); then
+  echo "expected empty env_file list path to be rejected" >&2
+  exit 1
+fi
+grep -F "env_file[0] path must not be empty" /tmp/apple-compose-bad-env-empty-list.out >/dev/null
+
+bad_env_empty_path_dir="$tmpdir/bad-env-empty-path"
+mkdir -p "$bad_env_empty_path_dir"
+cat > "$bad_env_empty_path_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    env_file:
+      - path: ""
+YAML
+if (cd "$bad_env_empty_path_dir" && "$binary" config >/tmp/apple-compose-bad-env-empty-path.out 2>&1); then
+  echo "expected empty env_file.path to be rejected" >&2
+  exit 1
+fi
+grep -F "env_file[0].path must be a non-empty string" /tmp/apple-compose-bad-env-empty-path.out >/dev/null
 
 bad_env_scalar_dir="$tmpdir/bad-env-scalar"
 mkdir -p "$bad_env_scalar_dir"
