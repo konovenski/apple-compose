@@ -1331,7 +1331,7 @@ struct ComposeParser {
                 throw ComposeError.invalidCompose("Service '\(serviceName)' ports[\(index)].target is required")
             }
             try validatePortValue(target, location: "Service '\(serviceName)' ports[\(index)].target", allowRange: true, allowZero: false)
-            let published = try parseOptionalStringOrInt(map["published"], location: "Service '\(serviceName)' ports[\(index)].published")
+            let published = try parseOptionalPortPublished(map["published"], location: "Service '\(serviceName)' ports[\(index)].published")
             if let published {
                 try validatePortValue(published, location: "Service '\(serviceName)' ports[\(index)].published", allowRange: true, allowZero: true)
             }
@@ -1364,6 +1364,13 @@ struct ComposeParser {
             return nil
         }
         return protocolName.isEmpty ? nil : protocolName
+    }
+
+    private func parseOptionalPortPublished(_ node: YAMLValue?, location: String) throws -> String? {
+        if case .string(let value)? = node, value.isEmpty {
+            return nil
+        }
+        return try parseOptionalStringOrInt(node, location: location)
     }
 
     private func parseOptionalPortHostIP(_ node: YAMLValue?, location: String) throws -> String? {

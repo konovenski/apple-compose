@@ -6569,10 +6569,13 @@ services:
     ports:
       - "3000"
       - "3001-3002/udp"
+      - target: 3003
+        published: ""
 YAML
 random_port_plan="$(cd "$random_port_dir" && "$binary" plan)"
 grep -F "ports[0]: published" <<<"$random_port_plan" >/dev/null
 grep -F "ports[1]: published" <<<"$random_port_plan" >/dev/null
+grep -F "ports[2]: published" <<<"$random_port_plan" >/dev/null
 if grep -F -- "--publish 3000" <<<"$random_port_plan" >/dev/null; then
   echo "expected target-only host ports to be omitted from the Apple publish plan" >&2
   exit 1
@@ -6581,11 +6584,16 @@ if grep -F -- "--publish 3001-3002/udp" <<<"$random_port_plan" >/dev/null; then
   echo "expected target-only port ranges to be omitted from the Apple publish plan" >&2
   exit 1
 fi
+if grep -F -- "--publish 3003" <<<"$random_port_plan" >/dev/null; then
+  echo "expected empty long-form published port to be omitted from the Apple publish plan" >&2
+  exit 1
+fi
 if (cd "$random_port_dir" && "$binary" up --dry-run >/tmp/apple-compose-random-port.out 2>&1); then
   echo "expected strict up to reject target-only port allocation" >&2
   exit 1
 fi
 grep -F "ports[0]: published" /tmp/apple-compose-random-port.out >/dev/null
+grep -F "ports[2]: published" /tmp/apple-compose-random-port.out >/dev/null
 
 port_host_ip_dir="$tmpdir/port-host-ip"
 mkdir -p "$port_host_ip_dir"
