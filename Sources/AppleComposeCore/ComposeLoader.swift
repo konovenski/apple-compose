@@ -1826,10 +1826,10 @@ struct ComposeParser {
             guard map["capabilities"] != nil else {
                 throw ComposeError.invalidCompose("\(itemLocation).capabilities is required")
             }
-            _ = try parseStringList(map["capabilities"], location: "\(itemLocation).capabilities")
+            _ = try parseStringList(map["capabilities"], location: "\(itemLocation).capabilities", allowEmpty: true)
             _ = try parseOptionalString(map["driver"], location: "\(itemLocation).driver")
             _ = try parseOptionalDeviceCount(map["count"], location: "\(itemLocation).count")
-            _ = try parseStringList(map["device_ids"], location: "\(itemLocation).device_ids")
+            _ = try parseStringList(map["device_ids"], location: "\(itemLocation).device_ids", allowEmpty: true)
             if map["count"] != nil && map["device_ids"] != nil {
                 throw ComposeError.invalidCompose("\(itemLocation) cannot set both count and device_ids")
             }
@@ -1911,7 +1911,7 @@ struct ComposeParser {
            !(0...100).contains(memSwappiness) {
             throw ComposeError.invalidCompose("Service '\(serviceName)' mem_swappiness must be between 0 and 100")
         }
-        _ = try parseStringOrNumberList(serviceMap["group_add"], location: "Service '\(serviceName)' group_add")
+        _ = try parseStringOrNumberList(serviceMap["group_add"], location: "Service '\(serviceName)' group_add", allowEmpty: true)
         try parseExtraHosts(serviceMap["extra_hosts"], location: "Service '\(serviceName)' extra_hosts")
         try parseSysctls(serviceMap["sysctls"], serviceName: serviceName)
         _ = try parseOptionalMap(serviceMap["storage_opt"], location: "Service '\(serviceName)' storage_opt")
@@ -2241,11 +2241,11 @@ struct ComposeParser {
             try rejectUnknownKeys(in: map, known: ["capabilities", "count", "device_ids", "driver", "options"], location: "\(location)[\(index)]")
             _ = try parseOptionalString(map["driver"], location: "\(location)[\(index)].driver")
             _ = try parseOptionalDeviceCount(map["count"], location: "\(location)[\(index)].count")
-            _ = try parseStringList(map["device_ids"], location: "\(location)[\(index)].device_ids")
+            _ = try parseStringList(map["device_ids"], location: "\(location)[\(index)].device_ids", allowEmpty: true)
             if map["count"] != nil && map["device_ids"] != nil {
                 throw ComposeError.invalidCompose("\(location)[\(index)] cannot set both count and device_ids")
             }
-            _ = try parseStringList(map["capabilities"], location: "\(location)[\(index)].capabilities")
+            _ = try parseStringList(map["capabilities"], location: "\(location)[\(index)].capabilities", allowEmpty: true)
             try parseListOrDictOptions(map["options"], location: "\(location)[\(index)].options")
         }
     }
@@ -3416,13 +3416,13 @@ struct ComposeParser {
         }
     }
 
-    private func parseStringOrNumberList(_ node: YAMLValue?, location: String) throws -> [String] {
+    private func parseStringOrNumberList(_ node: YAMLValue?, location: String, allowEmpty: Bool = false) throws -> [String] {
         guard let node else { return [] }
         guard let array = node.array else {
             throw ComposeError.invalidCompose("\(location) must be a list of strings or numbers")
         }
         return try array.enumerated().map { index, item in
-            try parseRequiredStringOrNumber(item, location: "\(location)[\(index)]")
+            try parseRequiredStringOrNumber(item, location: "\(location)[\(index)]", allowEmpty: allowEmpty)
         }
     }
 
@@ -3609,10 +3609,10 @@ struct ComposeParser {
         }
     }
 
-    private func parseRequiredStringOrNumber(_ node: YAMLValue, location: String) throws -> String {
+    private func parseRequiredStringOrNumber(_ node: YAMLValue, location: String, allowEmpty: Bool = false) throws -> String {
         switch node {
         case .string(let value):
-            guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard allowEmpty || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 throw ComposeError.invalidCompose("\(location) must be a non-empty string or number")
             }
             return value
@@ -3621,7 +3621,7 @@ struct ComposeParser {
         case .double(let value):
             return String(value)
         case .reset(let value), .overrideValue(let value):
-            return try parseRequiredStringOrNumber(value, location: location)
+            return try parseRequiredStringOrNumber(value, location: location, allowEmpty: allowEmpty)
         default:
             throw ComposeError.invalidCompose("\(location) must be a non-empty string or number")
         }

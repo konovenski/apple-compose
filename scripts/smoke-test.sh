@@ -3259,6 +3259,7 @@ services:
   web:
     image: nginx
     group_add:
+      - ""
       - mail
       - 44.5
 YAML
@@ -3270,6 +3271,21 @@ if (cd "$group_add_dir" && "$binary" up --dry-run >/tmp/apple-compose-group-add.
   exit 1
 fi
 grep -F "services.web: group_add" /tmp/apple-compose-group-add.out >/dev/null
+
+group_add_empty_dir="$tmpdir/group-add-empty"
+mkdir -p "$group_add_empty_dir"
+cat > "$group_add_empty_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    group_add:
+      - ""
+YAML
+group_add_empty_plan="$(cd "$group_add_empty_dir" && "$binary" plan)"
+if grep -F "services.web: group_add" <<<"$group_add_empty_plan" >/dev/null; then
+  echo "expected empty group_add entries to be accepted as default behavior" >&2
+  exit 1
+fi
 
 bad_group_add_shape_dir="$tmpdir/bad-group-add-shape"
 mkdir -p "$bad_group_add_shape_dir"
@@ -3300,6 +3316,21 @@ services:
           profile:
 YAML
 (cd "$valid_gpus_dir" && "$binary" config >/tmp/apple-compose-valid-gpus.out)
+
+valid_gpus_empty_strings_dir="$tmpdir/valid-gpus-empty-strings"
+mkdir -p "$valid_gpus_empty_strings_dir"
+cat > "$valid_gpus_empty_strings_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    gpus:
+      - driver: nvidia
+        capabilities:
+          - ""
+        device_ids:
+          - ""
+YAML
+(cd "$valid_gpus_empty_strings_dir" && "$binary" config >/tmp/apple-compose-valid-gpus-empty-strings.out)
 
 valid_gpus_options_list_dir="$tmpdir/valid-gpus-options-list"
 mkdir -p "$valid_gpus_options_list_dir"
@@ -8170,6 +8201,10 @@ services:
               options:
                 - profile=compute
                 - mode=fast
+            - capabilities:
+                - ""
+              device_ids:
+                - ""
 YAML
 (cd "$valid_deploy_device_reservation_options_dir" && "$binary" config >/tmp/apple-compose-valid-deploy-device-reservation-options.out)
 

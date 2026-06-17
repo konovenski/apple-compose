@@ -1054,6 +1054,8 @@ public struct CompatibilityAnalyzer {
         switch key {
         case "cgroup", "cgroup_parent", "hostname", "ipc", "isolation", "pid", "userns_mode", "uts":
             return isEmptyStringValue(value)
+        case "group_add":
+            return isEmptyStringArray(value)
         case "external_links":
             return isEmptyStringArray(value)
         case "logging":
