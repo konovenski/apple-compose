@@ -6874,6 +6874,23 @@ YAML
 (cd "$build_shm_tb_dir" && "$binary" config >/tmp/apple-compose-build-shm-tb.out)
 grep -F "shm_size: 1tb" /tmp/apple-compose-build-shm-tb.out >/dev/null
 
+build_shm_zero_dir="$tmpdir/build-shm-zero"
+mkdir -p "$build_shm_zero_dir"
+cat > "$build_shm_zero_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: example/web
+    build:
+      context: .
+      shm_size: 0
+YAML
+build_shm_zero_plan="$(cd "$build_shm_zero_dir" && "$binary" plan)"
+grep -F "container build --tag example/web" <<<"$build_shm_zero_plan" >/dev/null
+if grep -F "services.web.build: shm_size" <<<"$build_shm_zero_plan" >/dev/null; then
+  echo "expected build.shm_size=0 to be accepted as default behavior" >&2
+  exit 1
+fi
+
 build_shm_gap_dir="$tmpdir/build-shm-gap"
 mkdir -p "$build_shm_gap_dir"
 cat > "$build_shm_gap_dir/compose.yaml" <<'YAML'

@@ -984,7 +984,7 @@ struct ComposeParser {
             platforms: try parsePlatformList(map["platforms"], location: "Service '\(serviceName)' build.platforms"),
             noCache: try parseOptionalBoolOrString(map["no_cache"], location: "Service '\(serviceName)' build.no_cache") ?? false,
             pull: try parseOptionalBoolOrString(map["pull"], location: "Service '\(serviceName)' build.pull") ?? false,
-            shmSize: try parseOptionalByteValue(map["shm_size"], location: "Service '\(serviceName)' build.shm_size"),
+            shmSize: nonZeroByteValue(try parseOptionalByteValue(map["shm_size"], location: "Service '\(serviceName)' build.shm_size")),
             ulimits: try parseUlimits(map["ulimits"], location: "Service '\(serviceName)' build.ulimits"),
             secrets: try parseFileGrants(map["secrets"], defaultTargetPrefix: "", serviceName: serviceName, location: "build.secrets"),
             tags: try parseStringList(map["tags"], location: "Service '\(serviceName)' build.tags")
