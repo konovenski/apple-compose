@@ -171,7 +171,7 @@ public struct ComposePlanner {
             }
             args += ["--label", "com.docker.compose.project=\(project.name)"]
             args += ["--label", "com.docker.compose.network=\(key)"]
-            for (label, value) in network.labels.sorted(by: { $0.key < $1.key }) {
+            for (label, value) in network.labels.sorted(by: { $0.key < $1.key }) where !label.isEmpty {
                 args += ["--label", "\(label)=\(value)"]
             }
             for (option, value) in network.driverOptions.sorted(by: { $0.key < $1.key }) {
@@ -196,7 +196,7 @@ public struct ComposePlanner {
             var args = ["volume", "create"]
             args += ["--label", "com.docker.compose.project=\(project.name)"]
             args += ["--label", "com.docker.compose.volume=\(key)"]
-            for (label, value) in volume.labels.sorted(by: { $0.key < $1.key }) {
+            for (label, value) in volume.labels.sorted(by: { $0.key < $1.key }) where !label.isEmpty {
                 args += ["--label", "\(label)=\(value)"]
             }
             if let size = volume.driverOptions["size"], !size.isEmpty {
@@ -367,14 +367,14 @@ public struct ComposePlanner {
         } else if let dockerfile = build.dockerfile {
             args += ["--file", buildDockerfileArgument(dockerfile, build: build, project: project)]
         }
-        for (key, value) in build.args.sorted(by: { $0.key < $1.key }) {
+        for (key, value) in build.args.sorted(by: { $0.key < $1.key }) where !key.isEmpty {
             if let value {
                 args += ["--build-arg", "\(key)=\(value)"]
             } else if let resolved = project.environment[key] {
                 args += ["--build-arg", "\(key)=\(resolved)"]
             }
         }
-        for (key, value) in build.labels.sorted(by: { $0.key < $1.key }) {
+        for (key, value) in build.labels.sorted(by: { $0.key < $1.key }) where !key.isEmpty {
             args += ["--label", "\(key)=\(value)"]
         }
         if let target = build.target {
@@ -547,7 +547,7 @@ public struct ComposePlanner {
     ) -> [RuntimeCommand] {
         hooks.map { hook in
             var args = ["exec"]
-            for (key, value) in hook.environment.sorted(by: { $0.key < $1.key }) {
+            for (key, value) in hook.environment.sorted(by: { $0.key < $1.key }) where !key.isEmpty {
                 if let value {
                     args += ["--env", "\(key)=\(value)"]
                 } else if let resolved = project.environment[key] {
@@ -581,7 +581,7 @@ public struct ComposePlanner {
         args += ["--label", "com.docker.compose.project=\(project.name)"]
         args += ["--label", "com.docker.compose.service=\(service.name)"]
         args += ["--label", "com.docker.compose.container-number=\(replica)"]
-        for (key, value) in service.labels.sorted(by: { $0.key < $1.key }) {
+        for (key, value) in service.labels.sorted(by: { $0.key < $1.key }) where !key.isEmpty {
             args += ["--label", "\(key)=\(value)"]
         }
 
@@ -595,7 +595,7 @@ public struct ComposePlanner {
         } else if envFileValues.contains(where: { $0.value != nil }) {
             args += ["--env-file", generatedEnvFilePath(service: service, project: project).path]
         }
-        for (key, value) in service.environment.sorted(by: { $0.key < $1.key }) {
+        for (key, value) in service.environment.sorted(by: { $0.key < $1.key }) where !key.isEmpty {
             if let value {
                 args += ["--env", "\(key)=\(value)"]
             } else if let resolved = project.environment[key] {

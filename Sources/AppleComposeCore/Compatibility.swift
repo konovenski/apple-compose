@@ -288,9 +288,38 @@ public struct CompatibilityAnalyzer {
         ]
     }
 
+    private func emptyLabelKeyIssues(_ labels: [String: String], location: String) -> [CompatibilityIssue] {
+        guard labels.keys.contains("") else {
+            return []
+        }
+        return [
+            .init(
+                .error,
+                location,
+                "labels",
+                "Compose accepts empty label keys in list form, but Apple container CLI label flags require key=value with a non-empty key; apple-compose omits empty label keys from generated commands."
+            )
+        ]
+    }
+
+    private func emptyEnvironmentKeyIssues(_ environment: [String: String?], location: String, feature: String) -> [CompatibilityIssue] {
+        guard environment.keys.contains("") else {
+            return []
+        }
+        return [
+            .init(
+                .error,
+                location,
+                feature,
+                "Compose accepts empty \(feature) keys in list form, but Apple container CLI flags require key=value with a non-empty key; apple-compose omits empty \(feature) keys from generated commands."
+            )
+        ]
+    }
+
     private func analyze(_ network: ComposeNetwork) -> [CompatibilityIssue] {
         var issues: [CompatibilityIssue] = []
         let location = "networks.\(network.key)"
+        issues += emptyLabelKeyIssues(network.labels, location: location)
         issues += reservedComposeLabelIssues(network.labels, location: location)
         let ipv4SubnetCount = network.ipamSubnets.filter { !$0.contains(":") }.count
         let ipv6SubnetCount = network.ipamSubnets.filter { $0.contains(":") }.count
@@ -313,6 +342,7 @@ public struct CompatibilityAnalyzer {
     private func analyze(_ volume: ComposeVolume) -> [CompatibilityIssue] {
         var issues: [CompatibilityIssue] = []
         let location = "volumes.\(volume.key)"
+        issues += emptyLabelKeyIssues(volume.labels, location: location)
         issues += reservedComposeLabelIssues(volume.labels, location: location)
         if let driver = volume.driver, !["local", "default"].contains(driver) {
             issues.append(.init(.error, location, "driver", "Apple container volumes do not expose Docker volume drivers."))
@@ -337,6 +367,8 @@ public struct CompatibilityAnalyzer {
         if !service.annotations.isEmpty {
             issues.append(.init(.error, location, "annotations", "Compose annotations define container annotations, but Apple container CLI 1.0.0 exposes labels only and no annotation flag."))
         }
+        issues += emptyEnvironmentKeyIssues(service.environment, location: "\(location).environment", feature: "environment")
+        issues += emptyLabelKeyIssues(service.labels, location: location)
         issues += reservedComposeLabelIssues(service.labels, location: location)
         if let attach = map["attach"], exactBool(attach) != false {
             issues.append(.init(.warning, location, "attach", "apple-compose runs containers detached and does not attach log streams during up."))
@@ -610,6 +642,12 @@ public struct CompatibilityAnalyzer {
         for hook in service.preStop where hook.privileged {
             issues.append(.init(.error, "\(location).pre_stop", "privileged", "Apple container exec does not support privileged lifecycle hook commands."))
         }
+        for (index, hook) in service.postStart.enumerated() {
+            issues += emptyEnvironmentKeyIssues(hook.environment, location: "\(location).post_start[\(index)].environment", feature: "environment")
+        }
+        for (index, hook) in service.preStop.enumerated() {
+            issues += emptyEnvironmentKeyIssues(hook.environment, location: "\(location).pre_stop[\(index)].environment", feature: "environment")
+        }
         if !service.postStart.isEmpty {
             issues.append(.init(.warning, location, "post_start", "Hooks are run by apple-compose with container exec after container run returns; exact Compose timing is best-effort."))
         }
@@ -646,6 +684,7 @@ public struct CompatibilityAnalyzer {
                 issues.append(.init(.error, volumeLocation, "volume", "Apple container volume mounts do not expose Compose volume nocopy or subpath options."))
             }
             if !volume.volumeLabels.isEmpty {
+                issues += emptyLabelKeyIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
                 issues += reservedComposeLabelIssues(volume.volumeLabels, location: "\(volumeLocation).volume")
                 if resolvedVolumeType(volume) == "volume",
                    let source = volume.source,
@@ -736,6 +775,8 @@ public struct CompatibilityAnalyzer {
             if let cacheTo = buildMap["cache_to"], !isEmptyNoopValue(cacheTo), !isEmptyStringArray(cacheTo) {
                 issues.append(.init(.warning, "\(location).build", "cache_to", "Apple container build does not expose cache export flags; Compose Build permits unsupported cache targets to be ignored."))
             }
+            issues += emptyEnvironmentKeyIssues(build.args, location: "\(location).build.args", feature: "build argument")
+            issues += emptyLabelKeyIssues(build.labels, location: "\(location).build")
             let unsupportedBuildKeys: [(String, String)] = [
                 ("additional_contexts", "Apple container build help does not expose BuildKit additional contexts."),
                 ("entitlements", "Build entitlements are not exposed by Apple container build."),

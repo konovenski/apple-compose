@@ -1235,6 +1235,95 @@ if grep -F -- "--env-file" <<<"$env_resolution_plan" >/dev/null; then
   exit 1
 fi
 
+empty_key_dir="$tmpdir/empty-key"
+mkdir -p "$empty_key_dir"
+cat > "$empty_key_dir/compose.yaml" <<'YAML'
+name: empty_key
+services:
+  web:
+    image: example/web
+    build:
+      context: .
+      args:
+        - ""
+        - "=build"
+      labels:
+        - ""
+        - "=build-label"
+    environment:
+      - ""
+      - "=runtime"
+    labels:
+      - ""
+      - "=service-label"
+    post_start:
+      - command: echo hook
+        environment:
+          - ""
+          - "=hook"
+    volumes:
+      - type: volume
+        source: data
+        target: /data
+        volume:
+          labels:
+            - ""
+            - "=attached-volume-label"
+networks:
+  default:
+    labels:
+      - ""
+      - "=network-label"
+volumes:
+  data:
+    labels:
+      - ""
+      - "=volume-label"
+YAML
+empty_key_plan="$(cd "$empty_key_dir" && "$binary" plan)"
+grep -F "networks.default: labels" <<<"$empty_key_plan" >/dev/null
+grep -F "volumes.data: labels" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web: labels" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web.environment: environment" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web.build.args: build argument" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web.build: labels" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web.post_start[0].environment: environment" <<<"$empty_key_plan" >/dev/null
+grep -F "services.web.volumes[/data].volume: labels" <<<"$empty_key_plan" >/dev/null
+if grep -F -- "--env =" <<<"$empty_key_plan" >/dev/null; then
+  echo "expected empty environment keys to be omitted from generated commands" >&2
+  exit 1
+fi
+if grep -F -- "--build-arg =" <<<"$empty_key_plan" >/dev/null; then
+  echo "expected empty build argument keys to be omitted from generated commands" >&2
+  exit 1
+fi
+if grep -F -- "--label =" <<<"$empty_key_plan" >/dev/null; then
+  echo "expected empty label keys to be omitted from generated commands" >&2
+  exit 1
+fi
+if (cd "$empty_key_dir" && "$binary" up --dry-run >/tmp/apple-compose-empty-key-up.out 2>&1); then
+  echo "expected strict up to reject empty list-form keys as Apple rollout gaps" >&2
+  exit 1
+fi
+grep -F "empty label keys" /tmp/apple-compose-empty-key-up.out >/dev/null
+grep -F "empty environment keys" /tmp/apple-compose-empty-key-up.out >/dev/null
+grep -F "empty build argument keys" /tmp/apple-compose-empty-key-up.out >/dev/null
+
+bad_empty_env_map_dir="$tmpdir/bad-empty-env-map"
+mkdir -p "$bad_empty_env_map_dir"
+cat > "$bad_empty_env_map_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    environment:
+      "": bad
+YAML
+if (cd "$bad_empty_env_map_dir" && "$binary" config >/tmp/apple-compose-bad-empty-env-map.out 2>&1); then
+  echo "expected map-form empty environment key to be rejected" >&2
+  exit 1
+fi
+grep -F "environment keys must not be empty" /tmp/apple-compose-bad-empty-env-map.out >/dev/null
+
 container_name_dir="$tmpdir/container-name"
 mkdir -p "$container_name_dir"
 cat > "$container_name_dir/compose.yaml" <<'YAML'
@@ -5691,7 +5780,7 @@ if (cd "$bad_environment_shape_dir" && "$binary" config >/tmp/apple-compose-bad-
   echo "expected invalid environment list entry to be rejected" >&2
   exit 1
 fi
-grep -F "environment[1] must be a non-empty KEY or KEY=VALUE string" /tmp/apple-compose-bad-environment-shape.out >/dev/null
+grep -F "environment[1] must be a KEY or KEY=VALUE string" /tmp/apple-compose-bad-environment-shape.out >/dev/null
 
 bad_label_shape_dir="$tmpdir/bad-label-shape"
 mkdir -p "$bad_label_shape_dir"
@@ -7740,7 +7829,7 @@ if (cd "$bad_deploy_labels_shape_dir" && "$binary" config >/tmp/apple-compose-ba
   echo "expected invalid deploy.labels shape to be rejected" >&2
   exit 1
 fi
-grep -F "deploy.labels[0] must be a non-empty KEY or KEY=VALUE string" /tmp/apple-compose-bad-deploy-labels-shape.out >/dev/null
+grep -F "deploy.labels[0] must be a KEY or KEY=VALUE string" /tmp/apple-compose-bad-deploy-labels-shape.out >/dev/null
 
 bad_deploy_reservations_shape_dir="$tmpdir/bad-deploy-reservations-shape"
 mkdir -p "$bad_deploy_reservations_shape_dir"

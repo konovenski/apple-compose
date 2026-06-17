@@ -3645,6 +3645,9 @@ struct ComposeParser {
         guard let node else { return [:] }
         if let map = node.map {
             return Dictionary(uniqueKeysWithValues: try map.map { key, value in
+                guard !key.isEmpty else {
+                    throw ComposeError.invalidCompose("\(location) keys must not be empty")
+                }
                 if case .null = value {
                     return (key, nil)
                 }
@@ -3657,14 +3660,11 @@ struct ComposeParser {
         if let array = node.array {
             var values: [String: String?] = [:]
             for (index, item) in array.enumerated() {
-                guard let entry = item.string, !entry.isEmpty else {
-                    throw ComposeError.invalidCompose("\(location)[\(index)] must be a non-empty KEY or KEY=VALUE string")
+                guard let entry = item.string else {
+                    throw ComposeError.invalidCompose("\(location)[\(index)] must be a KEY or KEY=VALUE string")
                 }
                 if let equals = entry.firstIndex(of: "=") {
                     let key = String(entry[..<equals])
-                    guard !key.isEmpty else {
-                        throw ComposeError.invalidCompose("\(location)[\(index)] key must not be empty")
-                    }
                     values[key] = String(entry[entry.index(after: equals)...])
                 } else {
                     values.updateValue(nil, forKey: entry)
@@ -3694,14 +3694,11 @@ struct ComposeParser {
         if let array = node.array {
             var values: [String: String] = [:]
             for (index, item) in array.enumerated() {
-                guard let entry = item.string, !entry.isEmpty else {
-                    throw ComposeError.invalidCompose("\(location)[\(index)] must be a non-empty KEY or KEY=VALUE string")
+                guard let entry = item.string else {
+                    throw ComposeError.invalidCompose("\(location)[\(index)] must be a KEY or KEY=VALUE string")
                 }
                 if let equals = entry.firstIndex(of: "=") {
                     let key = String(entry[..<equals])
-                    guard !key.isEmpty else {
-                        throw ComposeError.invalidCompose("\(location)[\(index)] key must not be empty")
-                    }
                     values[key] = String(entry[entry.index(after: equals)...])
                 } else {
                     values[entry] = ""
