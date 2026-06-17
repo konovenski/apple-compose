@@ -2405,9 +2405,9 @@ struct ComposeParser {
         guard try parseCommand(map["command"], location: "\(location).command") != nil else {
             throw ComposeError.invalidCompose("\(location).command is required")
         }
-        _ = try parseOptionalString(map["user"], location: "\(location).user")
+        _ = try parseOptionalExactEmptyUnsetStringValue(map["user"], location: "\(location).user")
         _ = try parseOptionalBoolOrString(map["privileged"], location: "\(location).privileged")
-        _ = try parseOptionalString(map["working_dir"], location: "\(location).working_dir")
+        _ = try parseOptionalExactEmptyUnsetStringValue(map["working_dir"], location: "\(location).working_dir")
         _ = try parseEnvironmentMap(map["environment"], location: "\(location).environment")
     }
 
@@ -2825,9 +2825,9 @@ struct ComposeParser {
             )
             return LifecycleHook(
                 command: command,
-                user: try parseOptionalString(map["user"], location: "Service '\(serviceName)' \(key)[\(index)].user"),
+                user: try parseOptionalExactEmptyUnsetStringValue(map["user"], location: "Service '\(serviceName)' \(key)[\(index)].user"),
                 privileged: try parseOptionalBoolOrString(map["privileged"], location: "Service '\(serviceName)' \(key)[\(index)].privileged") ?? false,
-                workingDir: try parseOptionalString(map["working_dir"], location: "Service '\(serviceName)' \(key)[\(index)].working_dir"),
+                workingDir: try parseOptionalExactEmptyUnsetStringValue(map["working_dir"], location: "Service '\(serviceName)' \(key)[\(index)].working_dir"),
                 environment: try parseEnvironmentMap(map["environment"], location: "Service '\(serviceName)' \(key)[\(index)].environment")
             )
         }
@@ -3247,6 +3247,13 @@ struct ComposeParser {
     private func parseOptionalStringValue(_ node: YAMLValue?, location: String) throws -> String? {
         guard let node else { return nil }
         return try parseRequiredStringValue(node, location: location)
+    }
+
+    private func parseOptionalExactEmptyUnsetStringValue(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalStringValue(node, location: location) else {
+            return nil
+        }
+        return value.isEmpty ? nil : value
     }
 
     private func parseOptionalExactNonEmptyString(_ node: YAMLValue?, location: String) throws -> String? {

@@ -2975,6 +2975,26 @@ services:
 YAML
 (cd "$develop_sync_exec_dir" && "$binary" config >/tmp/apple-compose-develop-sync-exec.out)
 
+develop_exec_empty_defaults_dir="$tmpdir/develop-exec-empty-defaults"
+mkdir -p "$develop_exec_empty_defaults_dir"
+cat > "$develop_exec_empty_defaults_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    develop:
+      watch:
+        - action: sync+exec
+          path: ./src
+          target: /app/src
+          exec:
+            command: app reload
+            user: ""
+            working_dir: ""
+YAML
+(cd "$develop_exec_empty_defaults_dir" && "$binary" config >/tmp/apple-compose-develop-exec-empty-defaults.out)
+grep -F "user: ''" /tmp/apple-compose-develop-exec-empty-defaults.out >/dev/null
+grep -F "working_dir: ''" /tmp/apple-compose-develop-exec-empty-defaults.out >/dev/null
+
 develop_empty_patterns_dir="$tmpdir/develop-empty-patterns"
 mkdir -p "$develop_empty_patterns_dir"
 cat > "$develop_empty_patterns_dir/compose.yaml" <<'YAML'
@@ -3201,6 +3221,27 @@ if (cd "$bad_develop_exec_user_shape_dir" && "$binary" config >/tmp/apple-compos
   exit 1
 fi
 grep -F "develop.watch[0].exec.user must be a string" /tmp/apple-compose-bad-develop-exec-user-shape.out >/dev/null
+
+bad_develop_exec_user_null_dir="$tmpdir/bad-develop-exec-user-null"
+mkdir -p "$bad_develop_exec_user_null_dir"
+cat > "$bad_develop_exec_user_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    develop:
+      watch:
+        - action: sync+exec
+          path: ./src
+          target: /app/src
+          exec:
+            command: app reload
+            user:
+YAML
+if (cd "$bad_develop_exec_user_null_dir" && "$binary" config >/tmp/apple-compose-bad-develop-exec-user-null.out 2>&1); then
+  echo "expected null develop.watch exec user to be rejected" >&2
+  exit 1
+fi
+grep -F "develop.watch[0].exec.user must be a string" /tmp/apple-compose-bad-develop-exec-user-null.out >/dev/null
 
 bad_develop_exec_key_dir="$tmpdir/bad-develop-exec-key"
 mkdir -p "$bad_develop_exec_key_dir"
@@ -11583,6 +11624,37 @@ if (cd "$bad_hook_unknown_key_dir" && "$binary" config >/tmp/apple-compose-bad-h
   exit 1
 fi
 grep -F "pre_stop[0] contains unsupported key 'timeout'" /tmp/apple-compose-bad-hook-unknown-key.out >/dev/null
+
+hook_empty_defaults_dir="$tmpdir/hook-empty-defaults"
+mkdir -p "$hook_empty_defaults_dir"
+cat > "$hook_empty_defaults_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    post_start:
+      - command: app init
+        user: ""
+        working_dir: ""
+YAML
+(cd "$hook_empty_defaults_dir" && "$binary" config >/tmp/apple-compose-hook-empty-defaults.out)
+grep -F "user: ''" /tmp/apple-compose-hook-empty-defaults.out >/dev/null
+grep -F "working_dir: ''" /tmp/apple-compose-hook-empty-defaults.out >/dev/null
+
+bad_hook_user_null_dir="$tmpdir/bad-hook-user-null"
+mkdir -p "$bad_hook_user_null_dir"
+cat > "$bad_hook_user_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    post_start:
+      - command: app init
+        user:
+YAML
+if (cd "$bad_hook_user_null_dir" && "$binary" config >/tmp/apple-compose-bad-hook-user-null.out 2>&1); then
+  echo "expected null lifecycle hook user to be rejected" >&2
+  exit 1
+fi
+grep -F "post_start[0].user must be a string" /tmp/apple-compose-bad-hook-user-null.out >/dev/null
 
 bad_hook_workdir_shape_dir="$tmpdir/bad-hook-workdir-shape"
 mkdir -p "$bad_hook_workdir_shape_dir"
