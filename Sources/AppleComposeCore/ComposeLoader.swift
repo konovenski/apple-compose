@@ -2433,8 +2433,8 @@ struct ComposeParser {
         guard let node else { return }
         if let map = node.map {
             for (host, value) in map.sorted(by: { $0.key < $1.key }) {
-                guard isValidRFC1123Hostname(host) else {
-                    throw ComposeError.invalidCompose("\(location).\(host) must be a valid RFC 1123 hostname")
+                guard !host.isEmpty else {
+                    throw ComposeError.invalidCompose("\(location) host names must not be empty")
                 }
                 try parseExtraHostMapAddresses(value, location: "\(location).\(host)")
             }
@@ -2453,22 +2453,14 @@ struct ComposeParser {
     private func parseExtraHostMapAddresses(_ node: YAMLValue, location: String) throws {
         if let array = node.array {
             for (index, item) in array.enumerated() {
-                let rawAddress = try parseRequiredString(item, location: "\(location)[\(index)]")
-                guard let address = unbracketExtraHostAddress(rawAddress),
-                      isValidIPAddress(address, version: .any) else {
-                    throw ComposeError.invalidCompose("\(location)[\(index)] must be a valid IPv4 or IPv6 address")
-                }
+                try parseExtraHostAddressValue(item, location: "\(location)[\(index)]")
             }
             return
         }
         guard node.map == nil else {
-            throw ComposeError.invalidCompose("\(location) must be an IP address string or list of IP address strings")
+            throw ComposeError.invalidCompose("\(location) must be a string or list of strings")
         }
-        let rawAddress = try parseRequiredString(node, location: location)
-        guard let address = unbracketExtraHostAddress(rawAddress),
-              isValidIPAddress(address, version: .any) else {
-            throw ComposeError.invalidCompose("\(location) must be a valid IPv4 or IPv6 address")
-        }
+        try parseExtraHostAddressValue(node, location: location)
     }
 
     private func validateExtraHostEntry(_ entry: String, location: String) throws {
@@ -2477,26 +2469,20 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("\(location) must use HOSTNAME=IP or HOSTNAME:IP syntax")
         }
         let host = String(entry[..<separatorIndex])
-        let rawAddress = String(entry[entry.index(after: separatorIndex)...])
-        guard isValidRFC1123Hostname(host) else {
-            throw ComposeError.invalidCompose("\(location) host must be a valid RFC 1123 hostname")
-        }
-        guard let address = unbracketExtraHostAddress(rawAddress),
-              isValidIPAddress(address, version: .any) else {
-            throw ComposeError.invalidCompose("\(location) address must be a valid IPv4 or IPv6 address")
+        guard !host.isEmpty else {
+            throw ComposeError.invalidCompose("\(location) host must not be empty")
         }
     }
 
-    private func unbracketExtraHostAddress(_ value: String) -> String? {
-        if value.hasPrefix("[") || value.hasSuffix("]") {
-            guard value.hasPrefix("["), value.hasSuffix("]"), value.count > 2 else {
-                return nil
-            }
-            let start = value.index(after: value.startIndex)
-            let end = value.index(before: value.endIndex)
-            return String(value[start..<end])
+    private func parseExtraHostAddressValue(_ node: YAMLValue, location: String) throws {
+        switch node {
+        case .string:
+            return
+        case .reset(let value), .overrideValue(let value):
+            try parseExtraHostAddressValue(value, location: location)
+        default:
+            throw ComposeError.invalidCompose("\(location) must be a string")
         }
-        return value
     }
 
     private func parseSysctls(_ node: YAMLValue?, serviceName: String) throws {

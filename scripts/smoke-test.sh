@@ -3065,6 +3065,8 @@ services:
       - somehost=162.242.195.82
       - myhostv6=[::1]
       - colonhost:127.0.0.1
+      - bad host=not-an-ip
+      - empty-value=
 YAML
 extra_hosts_plan="$(cd "$extra_hosts_dir" && "$binary" plan)"
 grep -F "services.web: extra_hosts" <<<"$extra_hosts_plan" >/dev/null
@@ -3079,6 +3081,8 @@ services:
     extra_hosts:
       somehost: "162.242.195.82"
       myhostv6: "[::1]"
+      mapped_bad_host: not-an-ip
+      empty-value: ""
 YAML
 (cd "$extra_hosts_map_dir" && "$binary" config >/tmp/apple-compose-extra-hosts-map.out)
 
@@ -3094,6 +3098,9 @@ services:
         - "127.0.0.1"
       myhostv6:
         - "[::1]"
+      loose host:
+        - ""
+        - not-an-ip
 YAML
 (cd "$extra_hosts_map_list_dir" && "$binary" config >/tmp/apple-compose-extra-hosts-map-list.out)
 
@@ -3119,45 +3126,45 @@ services:
   web:
     image: nginx
     extra_hosts:
-      - bad_host=127.0.0.1
+      - =127.0.0.1
 YAML
 if (cd "$bad_extra_hosts_host_dir" && "$binary" config >/tmp/apple-compose-bad-extra-hosts-host.out 2>&1); then
-  echo "expected invalid extra_hosts hostname to be rejected" >&2
+  echo "expected empty extra_hosts hostname to be rejected" >&2
   exit 1
 fi
-grep -F "extra_hosts[0] host must be a valid RFC 1123 hostname" /tmp/apple-compose-bad-extra-hosts-host.out >/dev/null
+grep -F "extra_hosts[0] host must not be empty" /tmp/apple-compose-bad-extra-hosts-host.out >/dev/null
 
-bad_extra_hosts_ip_dir="$tmpdir/bad-extra-hosts-ip"
-mkdir -p "$bad_extra_hosts_ip_dir"
-cat > "$bad_extra_hosts_ip_dir/compose.yaml" <<'YAML'
+bad_extra_hosts_value_shape_dir="$tmpdir/bad-extra-hosts-value-shape"
+mkdir -p "$bad_extra_hosts_value_shape_dir"
+cat > "$bad_extra_hosts_value_shape_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
     extra_hosts:
-      somehost: not-an-ip
+      somehost: 123
 YAML
-if (cd "$bad_extra_hosts_ip_dir" && "$binary" config >/tmp/apple-compose-bad-extra-hosts-ip.out 2>&1); then
-  echo "expected invalid extra_hosts IP to be rejected" >&2
+if (cd "$bad_extra_hosts_value_shape_dir" && "$binary" config >/tmp/apple-compose-bad-extra-hosts-value-shape.out 2>&1); then
+  echo "expected non-string extra_hosts values to be rejected" >&2
   exit 1
 fi
-grep -F "extra_hosts.somehost must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-extra-hosts-ip.out >/dev/null
+grep -F "extra_hosts.somehost must be a string" /tmp/apple-compose-bad-extra-hosts-value-shape.out >/dev/null
 
-bad_extra_hosts_map_list_ip_dir="$tmpdir/bad-extra-hosts-map-list-ip"
-mkdir -p "$bad_extra_hosts_map_list_ip_dir"
-cat > "$bad_extra_hosts_map_list_ip_dir/compose.yaml" <<'YAML'
+bad_extra_hosts_map_list_value_shape_dir="$tmpdir/bad-extra-hosts-map-list-value-shape"
+mkdir -p "$bad_extra_hosts_map_list_value_shape_dir"
+cat > "$bad_extra_hosts_map_list_value_shape_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
     extra_hosts:
       somehost:
         - "127.0.0.1"
-        - not-an-ip
+        - 123
 YAML
-if (cd "$bad_extra_hosts_map_list_ip_dir" && "$binary" config >/tmp/apple-compose-bad-extra-hosts-map-list-ip.out 2>&1); then
-  echo "expected invalid extra_hosts IP list entries to be rejected" >&2
+if (cd "$bad_extra_hosts_map_list_value_shape_dir" && "$binary" config >/tmp/apple-compose-bad-extra-hosts-map-list-value-shape.out 2>&1); then
+  echo "expected non-string extra_hosts list values to be rejected" >&2
   exit 1
 fi
-grep -F "extra_hosts.somehost[1] must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-extra-hosts-map-list-ip.out >/dev/null
+grep -F "extra_hosts.somehost[1] must be a string" /tmp/apple-compose-bad-extra-hosts-map-list-value-shape.out >/dev/null
 
 sysctls_dir="$tmpdir/sysctls"
 mkdir -p "$sysctls_dir"
@@ -9972,6 +9979,7 @@ services:
       extra_hosts:
         - somehost=162.242.195.82
         - myhostv6=[::1]
+        - bad host=not-an-ip
 YAML
 if (cd "$build_extra_hosts_dir" && "$binary" up --dry-run >/tmp/apple-compose-build-extra-hosts.out 2>&1); then
   echo "expected strict up to reject unsupported build.extra_hosts" >&2
@@ -9991,6 +9999,8 @@ services:
       extra_hosts:
         somehost: "162.242.195.82"
         myhostv6: "[::1]"
+        slash/host: ""
+        bad host: not-an-ip
 YAML
 (cd "$build_extra_hosts_map_dir" && "$binary" config >/tmp/apple-compose-build-extra-hosts-map.out)
 
@@ -10011,22 +10021,22 @@ if (cd "$bad_build_extra_hosts_syntax_dir" && "$binary" config >/tmp/apple-compo
 fi
 grep -F "build.extra_hosts[0] must use HOSTNAME=IP or HOSTNAME:IP syntax" /tmp/apple-compose-bad-build-extra-hosts-syntax.out >/dev/null
 
-bad_build_extra_hosts_ip_dir="$tmpdir/bad-build-extra-hosts-ip"
-mkdir -p "$bad_build_extra_hosts_ip_dir"
-cat > "$bad_build_extra_hosts_ip_dir/compose.yaml" <<'YAML'
+bad_build_extra_hosts_value_shape_dir="$tmpdir/bad-build-extra-hosts-value-shape"
+mkdir -p "$bad_build_extra_hosts_value_shape_dir"
+cat > "$bad_build_extra_hosts_value_shape_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: example/web
     build:
       context: .
       extra_hosts:
-        somehost: not-an-ip
+        somehost: 123
 YAML
-if (cd "$bad_build_extra_hosts_ip_dir" && "$binary" config >/tmp/apple-compose-bad-build-extra-hosts-ip.out 2>&1); then
-  echo "expected invalid build.extra_hosts IP values to be rejected" >&2
+if (cd "$bad_build_extra_hosts_value_shape_dir" && "$binary" config >/tmp/apple-compose-bad-build-extra-hosts-value-shape.out 2>&1); then
+  echo "expected non-string build.extra_hosts values to be rejected" >&2
   exit 1
 fi
-grep -F "build.extra_hosts.somehost must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-build-extra-hosts-ip.out >/dev/null
+grep -F "build.extra_hosts.somehost must be a string" /tmp/apple-compose-bad-build-extra-hosts-value-shape.out >/dev/null
 
 build_ssh_scalar_dir="$tmpdir/build-ssh-scalar"
 mkdir -p "$build_ssh_scalar_dir"
