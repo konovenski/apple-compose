@@ -1302,10 +1302,11 @@ public struct CompatibilityAnalyzer {
         var issues: [CompatibilityIssue] = []
         var hasActiveOption = false
         for (index, entryValue) in entries.enumerated() {
-            guard let entry = entryValue.string?.trimmingCharacters(in: .whitespacesAndNewlines), !entry.isEmpty else {
-                issues.append(.init(.error, "\(location).security_opt[\(index)]", "syntax", "Compose security_opt entries must be non-empty option strings."))
+            guard let entry = entryValue.string?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                issues.append(.init(.error, "\(location).security_opt[\(index)]", "syntax", "Compose security_opt entries must be option strings."))
                 continue
             }
+            guard !entry.isEmpty else { continue }
             if !isDisabledSecurityOptEntry(entry) {
                 hasActiveOption = true
             }

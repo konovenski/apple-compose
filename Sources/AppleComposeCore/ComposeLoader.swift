@@ -889,8 +889,8 @@ struct ComposeParser {
                 readOnly: try parseOptionalBoolOrString(serviceMap["read_only"], location: "Service '\(name)' read_only") ?? false,
                 tty: try parseOptionalBoolOrString(serviceMap["tty"], location: "Service '\(name)' tty") ?? false,
                 stdinOpen: try parseOptionalBoolOrString(serviceMap["stdin_open"], location: "Service '\(name)' stdin_open") ?? false,
-                capAdd: try parseStringList(serviceMap["cap_add"], location: "Service '\(name)' cap_add"),
-                capDrop: try parseStringList(serviceMap["cap_drop"], location: "Service '\(name)' cap_drop"),
+                capAdd: try parseStringList(serviceMap["cap_add"], location: "Service '\(name)' cap_add", allowEmpty: true).filter { !$0.isEmpty },
+                capDrop: try parseStringList(serviceMap["cap_drop"], location: "Service '\(name)' cap_drop", allowEmpty: true).filter { !$0.isEmpty },
                 dns: try parseDNSList(serviceMap["dns"], serviceName: name),
                 dnsSearch: try parseStringList(serviceMap["dns_search"], location: "Service '\(name)' dns_search", allowScalar: true, allowEmpty: true),
                 domainName: domainName,
@@ -1915,7 +1915,7 @@ struct ComposeParser {
         try parseExtraHosts(serviceMap["extra_hosts"], location: "Service '\(serviceName)' extra_hosts")
         try parseSysctls(serviceMap["sysctls"], serviceName: serviceName)
         _ = try parseOptionalMap(serviceMap["storage_opt"], location: "Service '\(serviceName)' storage_opt")
-        _ = try parseStringList(serviceMap["security_opt"], location: "Service '\(serviceName)' security_opt")
+        _ = try parseStringList(serviceMap["security_opt"], location: "Service '\(serviceName)' security_opt", allowEmpty: true)
         try parseLogging(serviceMap["logging"], serviceName: serviceName)
         try parseCredentialSpec(serviceMap["credential_spec"], serviceName: serviceName)
         try parseGPUs(serviceMap["gpus"], serviceName: serviceName)

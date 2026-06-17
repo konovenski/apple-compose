@@ -3513,6 +3513,31 @@ if (cd "$bad_logging_key_dir" && "$binary" config >/tmp/apple-compose-bad-loggin
 fi
 grep -F "Service 'web' logging contains unsupported key 'max-size'" /tmp/apple-compose-bad-logging-key.out >/dev/null
 
+capabilities_empty_dir="$tmpdir/capabilities-empty"
+mkdir -p "$capabilities_empty_dir"
+cat > "$capabilities_empty_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    cap_add:
+      - ""
+      - NET_ADMIN
+    cap_drop:
+      - ""
+      - MKNOD
+YAML
+capabilities_empty_plan="$(cd "$capabilities_empty_dir" && "$binary" plan)"
+grep -F -- "--cap-add NET_ADMIN" <<<"$capabilities_empty_plan" >/dev/null
+grep -F -- "--cap-drop MKNOD" <<<"$capabilities_empty_plan" >/dev/null
+if grep -F -- "--cap-add ''" <<<"$capabilities_empty_plan" >/dev/null; then
+  echo "expected empty cap_add entries to be omitted" >&2
+  exit 1
+fi
+if grep -F -- "--cap-drop ''" <<<"$capabilities_empty_plan" >/dev/null; then
+  echo "expected empty cap_drop entries to be omitted" >&2
+  exit 1
+fi
+
 disabled_security_dir="$tmpdir/disabled-security"
 mkdir -p "$disabled_security_dir"
 cat > "$disabled_security_dir/compose.yaml" <<'YAML'
@@ -3521,6 +3546,7 @@ services:
   web:
     image: nginx
     security_opt:
+      - ""
       - no-new-privileges=false
       - no-new-privileges:false
 YAML
@@ -3546,7 +3572,7 @@ if (cd "$bad_security_shape_dir" && "$binary" config >/tmp/apple-compose-bad-sec
   exit 1
 fi
 
-grep -F "security_opt[1] must be a non-empty string" /tmp/apple-compose-bad-security-shape.out >/dev/null
+grep -F "security_opt[1] must be a string" /tmp/apple-compose-bad-security-shape.out >/dev/null
 
 bad_security_scalar_dir="$tmpdir/bad-security-scalar"
 mkdir -p "$bad_security_scalar_dir"
