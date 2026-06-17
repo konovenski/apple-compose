@@ -1054,10 +1054,34 @@ public struct CompatibilityAnalyzer {
         switch key {
         case "cgroup", "cgroup_parent", "hostname", "ipc", "isolation", "pid", "userns_mode", "uts":
             return isEmptyStringValue(value)
+        case "external_links":
+            return isEmptyStringArray(value)
         case "logging":
             return isLoggingNoopValue(value)
         case "provider":
             return isProviderNoopValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isEmptyStringArray(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .array(let values):
+            return values.allSatisfy { isExactEmptyStringValue($0) }
+        case .reset(let value), .overrideValue(let value):
+            return isEmptyStringArray(value)
+        default:
+            return false
+        }
+    }
+
+    private func isExactEmptyStringValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .string(let string):
+            return string.isEmpty
+        case .reset(let value), .overrideValue(let value):
+            return isExactEmptyStringValue(value)
         default:
             return false
         }

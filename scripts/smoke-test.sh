@@ -1966,27 +1966,46 @@ services:
   web:
     image: nginx
     external_links:
+      - ""
       - external_db
       - external_cache:cache
+      - "external_with_empty_alias:"
+      - ":external_empty_source"
+      - "external:with:extra:colons"
 YAML
 external_links_plan="$(cd "$external_links_dir" && "$binary" plan)"
 grep -F "services.web: external_links" <<<"$external_links_plan" >/dev/null
 grep -F "Legacy external links are not supported" <<<"$external_links_plan" >/dev/null
 
-bad_external_links_alias_dir="$tmpdir/bad-external-links-alias"
-mkdir -p "$bad_external_links_alias_dir"
-cat > "$bad_external_links_alias_dir/compose.yaml" <<'YAML'
+external_links_empty_dir="$tmpdir/external-links-empty"
+mkdir -p "$external_links_empty_dir"
+cat > "$external_links_empty_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
     external_links:
-      - "external_db:"
+      - ""
 YAML
-if (cd "$bad_external_links_alias_dir" && "$binary" config >/tmp/apple-compose-bad-external-links-alias.out 2>&1); then
-  echo "expected empty external_links alias to be rejected" >&2
+external_links_empty_plan="$(cd "$external_links_empty_dir" && "$binary" plan)"
+if grep -F "services.web: external_links" <<<"$external_links_empty_plan" >/dev/null; then
+  echo "expected empty external_links entries to be accepted as default behavior" >&2
   exit 1
 fi
-grep -F "external_links[0] alias must not be empty" /tmp/apple-compose-bad-external-links-alias.out >/dev/null
+
+bad_external_links_shape_dir="$tmpdir/bad-external-links-shape"
+mkdir -p "$bad_external_links_shape_dir"
+cat > "$bad_external_links_shape_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    external_links:
+      - target: external_db
+YAML
+if (cd "$bad_external_links_shape_dir" && "$binary" config >/tmp/apple-compose-bad-external-links-shape.out 2>&1); then
+  echo "expected non-string external_links entries to be rejected" >&2
+  exit 1
+fi
+grep -F "external_links[0] must be a string" /tmp/apple-compose-bad-external-links-shape.out >/dev/null
 
 bad_volumes_from_access_dir="$tmpdir/bad-volumes-from-access"
 mkdir -p "$bad_volumes_from_access_dir"
@@ -5378,6 +5397,41 @@ if (cd "$bad_network_key_dir" && "$binary" config >/tmp/apple-compose-bad-networ
 fi
 grep -F "Service 'web' networks.default contains unsupported key 'gateway'" /tmp/apple-compose-bad-network-key.out >/dev/null
 
+network_empty_alias_dir="$tmpdir/network-empty-alias"
+mkdir -p "$network_empty_alias_dir"
+cat > "$network_empty_alias_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    networks:
+      default:
+        aliases:
+          - ""
+YAML
+network_empty_alias_plan="$(cd "$network_empty_alias_dir" && "$binary" plan)"
+if grep -F "services.web.networks.default: aliases" <<<"$network_empty_alias_plan" >/dev/null; then
+  echo "expected empty network aliases to be accepted as default behavior" >&2
+  exit 1
+fi
+
+network_alias_dir="$tmpdir/network-alias"
+mkdir -p "$network_alias_dir"
+cat > "$network_alias_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    networks:
+      default:
+        aliases:
+          - ""
+          - web.local
+YAML
+if (cd "$network_alias_dir" && "$binary" up --dry-run >/tmp/apple-compose-network-alias.out 2>&1); then
+  echo "expected strict up to reject active network aliases" >&2
+  exit 1
+fi
+grep -F "services.web.networks.default: aliases" /tmp/apple-compose-network-alias.out >/dev/null
+
 bad_network_alias_shape_dir="$tmpdir/bad-network-alias-shape"
 mkdir -p "$bad_network_alias_shape_dir"
 cat > "$bad_network_alias_shape_dir/compose.yaml" <<'YAML'
@@ -5393,7 +5447,7 @@ if (cd "$bad_network_alias_shape_dir" && "$binary" config >/tmp/apple-compose-ba
   echo "expected invalid network aliases list entry to be rejected" >&2
   exit 1
 fi
-grep -F "networks.default.aliases[0] must be a non-empty string" /tmp/apple-compose-bad-network-alias-shape.out >/dev/null
+grep -F "networks.default.aliases[0] must be a string" /tmp/apple-compose-bad-network-alias-shape.out >/dev/null
 
 bad_network_ip_shape_dir="$tmpdir/bad-network-ip-shape"
 mkdir -p "$bad_network_ip_shape_dir"

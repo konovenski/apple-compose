@@ -1663,7 +1663,7 @@ struct ComposeParser {
             driverOptions.merge(try parseDriverOptionsMap(item["driver_opts"], location: "Service '\(serviceName)' networks.\(key).driver_opts")) { _, explicit in explicit }
             attachments[key] = NetworkAttachment(
                 key: key,
-                aliases: try parseStringList(item["aliases"], location: "Service '\(serviceName)' networks.\(key).aliases"),
+                aliases: try parseStringList(item["aliases"], location: "Service '\(serviceName)' networks.\(key).aliases", allowEmpty: true).filter { !$0.isEmpty },
                 ipv4Address: try parseOptionalIPAddress(item["ipv4_address"], version: .ipv4, location: "Service '\(serviceName)' networks.\(key).ipv4_address"),
                 ipv6Address: try parseOptionalIPAddress(item["ipv6_address"], version: .ipv6, location: "Service '\(serviceName)' networks.\(key).ipv6_address"),
                 macAddress: try parseMACAddress(item["mac_address"], location: "Service '\(serviceName)' networks.\(key).mac_address"),
@@ -2184,23 +2184,7 @@ struct ComposeParser {
 
     private func parseExternalLinks(_ node: YAMLValue?, serviceName: String) throws {
         let location = "Service '\(serviceName)' external_links"
-        let entries = try parseStringList(node, location: location)
-        for (index, entry) in entries.enumerated() {
-            try validateExternalLinkEntry(entry, location: "\(location)[\(index)]")
-        }
-    }
-
-    private func validateExternalLinkEntry(_ entry: String, location: String) throws {
-        let pieces = entry.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard pieces.count == 1 || pieces.count == 2 else {
-            throw ComposeError.invalidCompose("\(location) must use SERVICE or SERVICE:ALIAS syntax")
-        }
-        guard let source = pieces.first, !source.isEmpty else {
-            throw ComposeError.invalidCompose("\(location) source must not be empty")
-        }
-        if pieces.count == 2, pieces[1].isEmpty {
-            throw ComposeError.invalidCompose("\(location) alias must not be empty")
-        }
+        _ = try parseStringList(node, location: location, allowEmpty: true)
     }
 
     private func validateVolumesFromEntry(_ entry: String, location: String) throws {
