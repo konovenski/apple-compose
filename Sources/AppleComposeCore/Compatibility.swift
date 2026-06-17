@@ -436,15 +436,30 @@ public struct CompatibilityAnalyzer {
         issues += analyzeNestedServiceMaps(service, location: location)
 
         if let deploy = map["deploy"]?.map {
-            let supportedDeployKeys: Set<String> = ["labels", "mode", "replicas", "resources", "restart_policy"]
+            let supportedDeployKeys: Set<String> = ["endpoint_mode", "labels", "mode", "placement", "replicas", "resources", "restart_policy", "rollback_config", "update_config"]
             for key in deploy.keys where !supportedDeployKeys.contains(key) && !key.hasPrefix("x-") {
                 issues.append(.init(.error, "\(location).deploy", key, "Apple containers are not a Swarm orchestrator, so this deploy setting cannot be applied."))
             }
-            if deploy["labels"] != nil {
+            if let labels = deploy["labels"], !isEmptyNoopValue(labels) {
                 issues.append(.init(.error, "\(location).deploy", "labels", "Compose deploy labels are service metadata and are not inherited by containers; Apple container CLI has no service object to label."))
             }
-            if let mode = deploy["mode"]?.string, mode != "replicated" {
+            if let modeValue = deploy["mode"],
+               !isEmptyStringValue(modeValue),
+               let mode = modeValue.string,
+               mode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "replicated" {
                 issues.append(.init(.error, "\(location).deploy", "mode", "Only the default replicated deploy mode can be mapped to local Apple containers. Mode '\(mode)' requires orchestrator semantics."))
+            }
+            if let endpointMode = deploy["endpoint_mode"], !isEmptyStringValue(endpointMode) {
+                issues.append(.init(.error, "\(location).deploy", "endpoint_mode", "Deploy endpoint modes require Swarm service networking and cannot be applied to local Apple containers."))
+            }
+            if let placement = deploy["placement"], !isEmptyNoopValue(placement) {
+                issues.append(.init(.error, "\(location).deploy", "placement", "Deploy placement constraints and preferences require a Swarm orchestrator and cannot be applied to local Apple containers."))
+            }
+            if let updateConfig = deploy["update_config"], !isEmptyNoopValue(updateConfig) {
+                issues.append(.init(.error, "\(location).deploy", "update_config", "Deploy update_config requires Swarm rolling-update orchestration and cannot be applied to local Apple containers."))
+            }
+            if let rollbackConfig = deploy["rollback_config"], !isEmptyNoopValue(rollbackConfig) {
+                issues.append(.init(.error, "\(location).deploy", "rollback_config", "Deploy rollback_config requires Swarm rollback orchestration and cannot be applied to local Apple containers."))
             }
             if let restartPolicy = deploy["restart_policy"]?.map {
                 issues += analyzeDeployRestartPolicy(restartPolicy, location: "\(location).deploy.restart_policy")

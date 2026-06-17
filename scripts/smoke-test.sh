@@ -7311,6 +7311,28 @@ fi
 grep -F "services.web.deploy: labels" /tmp/apple-compose-deploy-labels.out >/dev/null
 grep -F "service object to label" /tmp/apple-compose-deploy-labels.out >/dev/null
 
+deploy_empty_orchestration_dir="$tmpdir/deploy-empty-orchestration"
+mkdir -p "$deploy_empty_orchestration_dir"
+cat > "$deploy_empty_orchestration_dir/compose.yaml" <<'YAML'
+name: deploy_empty_orchestration
+services:
+  web:
+    image: nginx
+    deploy:
+      labels: {}
+      mode: ""
+      endpoint_mode: ""
+      placement: {}
+      update_config: {}
+      rollback_config: {}
+YAML
+deploy_empty_orchestration_plan="$(cd "$deploy_empty_orchestration_dir" && "$binary" plan)"
+grep -F "deploy_empty_orchestration-web-1" <<<"$deploy_empty_orchestration_plan" >/dev/null
+if grep -F "[error]" <<<"$deploy_empty_orchestration_plan" >/dev/null; then
+  echo "expected empty deploy orchestration settings to be accepted as no-ops" >&2
+  exit 1
+fi
+
 bad_deploy_mode_dir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$include_dir" "$envvars_dir" "$disabled_env_dir" "$project_name_dir" "$selection_dir" "$pull_policy_dir" "$time_pull_dir" "$bad_env_format_dir" "$build_platform_dir" "$build_platform_mismatch_dir" "$random_port_dir" "$port_range_dir" "$scaled_port_dir" "$bad_scale_dir" "$bad_duration_dir" "$bad_deploy_resources_dir" "$deploy_reservation_dir" "$deploy_metadata_dir" "$bad_deploy_mode_dir"' EXIT
 cat > "$bad_deploy_mode_dir/compose.yaml" <<'YAML'
@@ -7328,6 +7350,27 @@ fi
 
 grep -F "deploy: mode" /tmp/apple-compose-bad-deploy-mode.out >/dev/null
 grep -F "global" /tmp/apple-compose-bad-deploy-mode.out >/dev/null
+
+bad_deploy_rollout_dir="$tmpdir/bad-deploy-rollout"
+mkdir -p "$bad_deploy_rollout_dir"
+cat > "$bad_deploy_rollout_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    deploy:
+      endpoint_mode: vip
+      update_config:
+        parallelism: 1
+      rollback_config:
+        parallelism: 1
+YAML
+if (cd "$bad_deploy_rollout_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-deploy-rollout.out 2>&1); then
+  echo "expected strict up to reject active deploy rollout configs" >&2
+  exit 1
+fi
+grep -F "services.web.deploy: endpoint_mode" /tmp/apple-compose-bad-deploy-rollout.out >/dev/null
+grep -F "services.web.deploy: update_config" /tmp/apple-compose-bad-deploy-rollout.out >/dev/null
+grep -F "services.web.deploy: rollback_config" /tmp/apple-compose-bad-deploy-rollout.out >/dev/null
 
 bad_deploy_mode_shape_dir="$tmpdir/bad-deploy-mode-shape"
 mkdir -p "$bad_deploy_mode_shape_dir"

@@ -1696,8 +1696,16 @@ struct ComposeParser {
             known: ["endpoint_mode", "labels", "mode", "placement", "replicas", "resources", "restart_policy", "rollback_config", "update_config"],
             location: location
         )
-        _ = try parseOptionalEnum(deploy["mode"], allowed: ["global", "global-job", "replicated", "replicated-job"], location: "\(location).mode")
-        _ = try parseOptionalEnum(deploy["endpoint_mode"], allowed: ["dnsrr", "vip"], location: "\(location).endpoint_mode")
+        if let mode = try parseOptionalUnsettableString(deploy["mode"], location: "\(location).mode") {
+            guard ["global", "global-job", "replicated", "replicated-job"].contains(mode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) else {
+                throw ComposeError.invalidCompose("\(location).mode must be one of: global, global-job, replicated, replicated-job")
+            }
+        }
+        if let endpointMode = try parseOptionalUnsettableString(deploy["endpoint_mode"], location: "\(location).endpoint_mode") {
+            guard ["dnsrr", "vip"].contains(endpointMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) else {
+                throw ComposeError.invalidCompose("\(location).endpoint_mode must be one of: dnsrr, vip")
+            }
+        }
         try parseDeployPlacement(deploy["placement"], location: "\(location).placement")
         try parseDeployRestartPolicy(deploy["restart_policy"], location: "\(location).restart_policy")
         try parseDeployUpdateConfig(deploy["update_config"], location: "\(location).update_config", allowedFailureActions: ["continue", "pause", "rollback"])
