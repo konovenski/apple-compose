@@ -2453,8 +2453,9 @@ struct ComposeParser {
     private func parseExtraHostMapAddresses(_ node: YAMLValue, location: String) throws {
         if let array = node.array {
             for (index, item) in array.enumerated() {
-                let address = try parseRequiredString(item, location: "\(location)[\(index)]")
-                guard isValidIPAddress(address, version: .any) else {
+                let rawAddress = try parseRequiredString(item, location: "\(location)[\(index)]")
+                guard let address = unbracketExtraHostAddress(rawAddress),
+                      isValidIPAddress(address, version: .any) else {
                     throw ComposeError.invalidCompose("\(location)[\(index)] must be a valid IPv4 or IPv6 address")
                 }
             }
@@ -2463,8 +2464,9 @@ struct ComposeParser {
         guard node.map == nil else {
             throw ComposeError.invalidCompose("\(location) must be an IP address string or list of IP address strings")
         }
-        let address = try parseRequiredString(node, location: location)
-        guard isValidIPAddress(address, version: .any) else {
+        let rawAddress = try parseRequiredString(node, location: location)
+        guard let address = unbracketExtraHostAddress(rawAddress),
+              isValidIPAddress(address, version: .any) else {
             throw ComposeError.invalidCompose("\(location) must be a valid IPv4 or IPv6 address")
         }
     }

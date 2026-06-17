@@ -3078,7 +3078,7 @@ services:
     image: nginx
     extra_hosts:
       somehost: "162.242.195.82"
-      myhostv6: "::1"
+      myhostv6: "[::1]"
 YAML
 (cd "$extra_hosts_map_dir" && "$binary" config >/tmp/apple-compose-extra-hosts-map.out)
 
@@ -3093,7 +3093,7 @@ services:
         - "162.242.195.82"
         - "127.0.0.1"
       myhostv6:
-        - "::1"
+        - "[::1]"
 YAML
 (cd "$extra_hosts_map_list_dir" && "$binary" config >/tmp/apple-compose-extra-hosts-map-list.out)
 
@@ -9983,6 +9983,20 @@ if (cd "$build_extra_hosts_dir" && "$binary" up --dry-run >/tmp/apple-compose-bu
 fi
 grep -F "services.web.build: extra_hosts" /tmp/apple-compose-build-extra-hosts.out >/dev/null
 grep -F "Build extra_hosts are not exposed" /tmp/apple-compose-build-extra-hosts.out >/dev/null
+
+build_extra_hosts_map_dir="$tmpdir/build-extra-hosts-map"
+mkdir -p "$build_extra_hosts_map_dir"
+cat > "$build_extra_hosts_map_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: example/web
+    build:
+      context: .
+      extra_hosts:
+        somehost: "162.242.195.82"
+        myhostv6: "[::1]"
+YAML
+(cd "$build_extra_hosts_map_dir" && "$binary" config >/tmp/apple-compose-build-extra-hosts-map.out)
 
 bad_build_extra_hosts_syntax_dir="$tmpdir/bad-build-extra-hosts-syntax"
 mkdir -p "$bad_build_extra_hosts_syntax_dir"
