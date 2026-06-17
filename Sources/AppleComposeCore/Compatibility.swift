@@ -410,7 +410,7 @@ public struct CompatibilityAnalyzer {
             ("volumes_from", "Mounting all volumes from another container is not exposed by Apple container CLI.")
         ]
         for (key, message) in unsupportedServiceKeys {
-            guard let value = map[key], !isEmptyNoopValue(value), !isUnsupportedEmptyStringNoop(key, value) else {
+            guard let value = map[key], !isEmptyNoopValue(value), !isUnsupportedNoopValue(key, value) else {
                 continue
             }
             issues.append(.init(.error, location, key, message))
@@ -1047,10 +1047,33 @@ public struct CompatibilityAnalyzer {
         }
     }
 
-    private func isUnsupportedEmptyStringNoop(_ key: String, _ value: YAMLValue) -> Bool {
+    private func isUnsupportedNoopValue(_ key: String, _ value: YAMLValue) -> Bool {
         switch key {
         case "cgroup", "cgroup_parent", "hostname", "ipc", "isolation", "pid", "userns_mode", "uts":
             return isEmptyStringValue(value)
+        case "logging":
+            return isLoggingNoopValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isLoggingNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .map(let map):
+            guard !map.isEmpty else { return true }
+            return map.allSatisfy { key, value in
+                switch key {
+                case "driver":
+                    return isEmptyStringValue(value) || isEmptyNoopValue(value)
+                case "options":
+                    return isEmptyNoopValue(value)
+                default:
+                    return key.hasPrefix("x-")
+                }
+            }
+        case .reset(let value), .overrideValue(let value):
+            return isLoggingNoopValue(value)
         default:
             return false
         }

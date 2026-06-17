@@ -1767,6 +1767,9 @@ services:
     hostname: ""
     ipc: ""
     isolation: ""
+    logging:
+      driver: ""
+      options: {}
     links: []
     mac_address: ""
     models: []

@@ -2124,7 +2124,7 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("Service '\(serviceName)' logging must be a mapping")
         }
         try rejectUnknownKeys(in: map, known: ["driver", "options"], location: "Service '\(serviceName)' logging")
-        _ = try parseOptionalString(map["driver"], location: "Service '\(serviceName)' logging.driver")
+        _ = try parseOptionalUnsettableString(map["driver"], location: "Service '\(serviceName)' logging.driver")
         try parseLoggingOptions(map["options"], location: "Service '\(serviceName)' logging.options")
     }
 
