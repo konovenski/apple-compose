@@ -1353,6 +1353,7 @@ struct ComposeParser {
     private func validatePortProtocol(_ protocolName: String?, location: String) throws {
         guard let protocolName else { return }
         let normalized = protocolName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return }
         guard ["tcp", "udp", "sctp"].contains(normalized) else {
             throw ComposeError.invalidCompose("\(location) protocol must be tcp, udp, or sctp")
         }

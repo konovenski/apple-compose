@@ -6809,6 +6809,25 @@ fi
 grep -F "services.web.ports[0]: protocol" /tmp/apple-compose-port-sctp-protocol.out >/dev/null
 grep -F "protocol 'sctp' cannot be applied" /tmp/apple-compose-port-sctp-protocol.out >/dev/null
 
+port_whitespace_protocol_dir="$tmpdir/port-whitespace-protocol"
+mkdir -p "$port_whitespace_protocol_dir"
+cat > "$port_whitespace_protocol_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        published: "8080"
+        protocol: "   "
+YAML
+(cd "$port_whitespace_protocol_dir" && "$binary" config >/tmp/apple-compose-port-whitespace-protocol-config.out)
+if (cd "$port_whitespace_protocol_dir" && "$binary" up --dry-run >/tmp/apple-compose-port-whitespace-protocol.out 2>&1); then
+  echo "expected strict up to reject whitespace-only port protocol" >&2
+  exit 1
+fi
+grep -F "services.web.ports[0]: protocol" /tmp/apple-compose-port-whitespace-protocol.out >/dev/null
+grep -F "protocol '   ' cannot be applied" /tmp/apple-compose-port-whitespace-protocol.out >/dev/null
+
 short_port_sctp_protocol_dir="$tmpdir/short-port-sctp-protocol"
 mkdir -p "$short_port_sctp_protocol_dir"
 cat > "$short_port_sctp_protocol_dir/compose.yaml" <<'YAML'
@@ -6825,6 +6844,23 @@ if (cd "$short_port_sctp_protocol_dir" && "$binary" up --dry-run >/tmp/apple-com
 fi
 grep -F "services.web.ports[0]: protocol" /tmp/apple-compose-short-port-sctp-protocol.out >/dev/null
 grep -F "protocol 'sctp' cannot be applied" /tmp/apple-compose-short-port-sctp-protocol.out >/dev/null
+
+short_port_whitespace_protocol_dir="$tmpdir/short-port-whitespace-protocol"
+mkdir -p "$short_port_whitespace_protocol_dir"
+cat > "$short_port_whitespace_protocol_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80/   "
+YAML
+(cd "$short_port_whitespace_protocol_dir" && "$binary" config >/tmp/apple-compose-short-port-whitespace-protocol-config.out)
+if (cd "$short_port_whitespace_protocol_dir" && "$binary" up --dry-run >/tmp/apple-compose-short-port-whitespace-protocol.out 2>&1); then
+  echo "expected strict up to reject whitespace-only short port protocol" >&2
+  exit 1
+fi
+grep -F "services.web.ports[0]: protocol" /tmp/apple-compose-short-port-whitespace-protocol.out >/dev/null
+grep -F "protocol '   ' cannot be applied" /tmp/apple-compose-short-port-whitespace-protocol.out >/dev/null
 
 bad_short_port_protocol_value_dir="$tmpdir/bad-short-port-protocol-value"
 mkdir -p "$bad_short_port_protocol_value_dir"
