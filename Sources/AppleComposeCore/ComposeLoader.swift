@@ -3433,7 +3433,7 @@ struct ComposeParser {
                 guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw ComposeError.invalidCompose("\(location) keys must not be empty")
                 }
-                return (key, try parseRequiredString(value, location: "\(location).\(key)"))
+                return (key, try parseRequiredStringValue(value, location: "\(location).\(key)"))
             })
         }
         if let array = node.array {
@@ -3452,16 +3452,14 @@ struct ComposeParser {
                 guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     throw ComposeError.invalidCompose("\(location) keys must not be empty")
                 }
-                return (key, try parseRequiredString(value, location: "\(location).\(key)"))
+                return (key, try parseRequiredStringValue(value, location: "\(location).\(key)"))
             })
         }
         if let array = node.array {
             for (index, item) in array.enumerated() {
                 let entry = try parseRequiredString(item, location: "\(location)[\(index)]")
                 let parts = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-                guard parts.count == 2,
-                      !parts[0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                      !parts[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                guard parts.count == 2 else {
                     throw ComposeError.invalidCompose("\(location)[\(index)] must use NAME=VALUE syntax")
                 }
             }

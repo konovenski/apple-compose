@@ -10077,6 +10077,8 @@ services:
       additional_contexts:
         - resources=/path/to/resources
         - app=docker-image://my-app:latest
+        - empty=
+        - =/path/to/nameless
 YAML
 if (cd "$build_additional_contexts_dir" && "$binary" up --dry-run >/tmp/apple-compose-build-additional-contexts.out 2>&1); then
   echo "expected strict up to reject unsupported build.additional_contexts" >&2
@@ -10084,6 +10086,19 @@ if (cd "$build_additional_contexts_dir" && "$binary" up --dry-run >/tmp/apple-co
 fi
 grep -F "services.web.build: additional_contexts" /tmp/apple-compose-build-additional-contexts.out >/dev/null
 grep -F "BuildKit additional contexts" /tmp/apple-compose-build-additional-contexts.out >/dev/null
+
+build_additional_contexts_empty_value_dir="$tmpdir/build-additional-contexts-empty-value"
+mkdir -p "$build_additional_contexts_empty_value_dir"
+cat > "$build_additional_contexts_empty_value_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: example/web
+    build:
+      context: .
+      additional_contexts:
+        empty-map-value: ""
+YAML
+(cd "$build_additional_contexts_empty_value_dir" && "$binary" config >/tmp/apple-compose-build-additional-contexts-empty-value.out)
 
 bad_build_additional_contexts_key_dir="$tmpdir/bad-build-additional-contexts-key"
 mkdir -p "$bad_build_additional_contexts_key_dir"
