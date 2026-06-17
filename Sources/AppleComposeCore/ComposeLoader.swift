@@ -839,10 +839,6 @@ struct ComposeParser {
             }
             let pullPolicy = try parsePullPolicy(serviceMap["pull_policy"], serviceName: name)
             let pullRefreshAfter = try parsePullRefreshAfter(serviceMap["pull_refresh_after"], serviceName: name)
-            if pullPolicy?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "refresh",
-               pullRefreshAfter == nil {
-                throw ComposeError.invalidCompose("Service '\(name)' pull_policy refresh requires pull_refresh_after")
-            }
             let rawServicePidsLimit = try parseOptionalPidsLimit(serviceMap["pids_limit"], location: "Service '\(name)' pids_limit")
             let deployPidsLimit = try parseOptionalInt(limits?["pids"], location: "Service '\(name)' deploy.resources.limits.pids")
             try validateDeployResourceConsistency(

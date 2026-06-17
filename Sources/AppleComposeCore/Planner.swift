@@ -1179,7 +1179,7 @@ public struct ComposePlanner {
     private func pullPolicyIntervalSeconds(for service: ComposeService) -> Int? {
         let policy = service.pullPolicy?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if policy == "refresh" {
-            return composePullPolicyRefreshAfterSeconds(service.pullRefreshAfter)
+            return composePullPolicyRefreshAfterSeconds(service.pullRefreshAfter) ?? 0
         }
         return composePullPolicyIntervalSeconds(policy)
     }

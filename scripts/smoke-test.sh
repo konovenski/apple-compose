@@ -5901,6 +5901,9 @@ services:
     image: example/refresher:1.0
     pull_policy: refresh
     pull_refresh_after: 2h30m
+  refresh_default:
+    image: example/refresh-default:1.0
+    pull_policy: refresh
 YAML
 if ! (cd "$time_pull_dir" && "$binary" up --dry-run >/tmp/apple-compose-pull-policy.out 2>&1); then
   cat /tmp/apple-compose-pull-policy.out >&2
@@ -5914,6 +5917,7 @@ grep -F "604800 example/worker:1.0 container image pull example/worker:1.0" /tmp
 grep -F "788645 example/api:1.0 container image pull --platform linux/arm64 example/api:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 grep -F "0 example/immediate:1.0 container image pull example/immediate:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 grep -F "9000 example/refresher:1.0 container image pull example/refresher:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
+grep -F "0 example/refresh-default:1.0 container image pull example/refresh-default:1.0" /tmp/apple-compose-pull-policy.out >/dev/null
 
 bad_time_pull_dir="$tmpdir/bad-time-pull-policy"
 mkdir -p "$bad_time_pull_dir"
@@ -5931,20 +5935,6 @@ fi
 grep -F "pull_policy" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
 grep -F "every_soon" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
 grep -F "must use a duration with w, d, h, m, or s units" /tmp/apple-compose-bad-time-pull-policy.out >/dev/null
-
-bad_refresh_pull_dir="$tmpdir/bad-refresh-pull-policy"
-mkdir -p "$bad_refresh_pull_dir"
-cat > "$bad_refresh_pull_dir/compose.yaml" <<'YAML'
-services:
-  web:
-    image: nginx
-    pull_policy: refresh
-YAML
-if (cd "$bad_refresh_pull_dir" && "$binary" config >/tmp/apple-compose-bad-refresh-pull-policy.out 2>&1); then
-  echo "expected config to reject pull_policy refresh without pull_refresh_after" >&2
-  exit 1
-fi
-grep -F "pull_policy refresh requires pull_refresh_after" /tmp/apple-compose-bad-refresh-pull-policy.out >/dev/null
 
 bad_refresh_duration_dir="$tmpdir/bad-refresh-duration"
 mkdir -p "$bad_refresh_duration_dir"
