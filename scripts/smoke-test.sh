@@ -4606,19 +4606,41 @@ YAML
 dns_ipv6_plan="$(cd "$dns_ipv6_dir" && "$binary" plan)"
 grep -F -- "--dns 2001:4860:4860::8888" <<<"$dns_ipv6_plan" >/dev/null
 
-bad_dns_value_dir="$tmpdir/bad-dns-value"
-mkdir -p "$bad_dns_value_dir"
-cat > "$bad_dns_value_dir/compose.yaml" <<'YAML'
+dns_hostname_dir="$tmpdir/dns-hostname"
+mkdir -p "$dns_hostname_dir"
+cat > "$dns_hostname_dir/compose.yaml" <<'YAML'
 services:
   app:
     image: nginx
     dns: dns.example.test
 YAML
-if (cd "$bad_dns_value_dir" && "$binary" config >/tmp/apple-compose-bad-dns-value.out 2>&1); then
-  echo "expected non-IP dns value to be rejected" >&2
+dns_hostname_plan="$(cd "$dns_hostname_dir" && "$binary" plan)"
+grep -F -- "--dns dns.example.test" <<<"$dns_hostname_plan" >/dev/null
+
+dns_empty_dir="$tmpdir/dns-empty"
+mkdir -p "$dns_empty_dir"
+cat > "$dns_empty_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    dns:
+      - ""
+      - 1.1.1.1
+    dns_search:
+      - ""
+      - example.test
+    dns_opt:
+      - ""
+      - use-vc
+YAML
+dns_empty_plan="$(cd "$dns_empty_dir" && "$binary" plan)"
+grep -F -- "--dns 1.1.1.1" <<<"$dns_empty_plan" >/dev/null
+if grep -F -- "--dns ''" <<<"$dns_empty_plan" >/dev/null; then
+  echo "expected empty dns entries to be omitted" >&2
   exit 1
 fi
-grep -F "dns must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-dns-value.out >/dev/null
+grep -F -- "--dns-search ''" <<<"$dns_empty_plan" >/dev/null
+grep -F -- "--dns-option ''" <<<"$dns_empty_plan" >/dev/null
 
 bad_dns_entry_shape_dir="$tmpdir/bad-dns-entry-shape"
 mkdir -p "$bad_dns_entry_shape_dir"
@@ -4633,7 +4655,7 @@ if (cd "$bad_dns_entry_shape_dir" && "$binary" config >/tmp/apple-compose-bad-dn
   echo "expected non-string dns_opt entries to be rejected" >&2
   exit 1
 fi
-grep -F "dns_opt[0] must be a non-empty string" /tmp/apple-compose-bad-dns-entry-shape.out >/dev/null
+grep -F "dns_opt[0] must be a string" /tmp/apple-compose-bad-dns-entry-shape.out >/dev/null
 
 bad_network_mode_dir="$tmpdir/bad-network-mode"
 mkdir -p "$bad_network_mode_dir"

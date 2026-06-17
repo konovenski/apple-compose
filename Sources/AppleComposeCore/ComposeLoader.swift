@@ -892,9 +892,9 @@ struct ComposeParser {
                 capAdd: try parseStringList(serviceMap["cap_add"], location: "Service '\(name)' cap_add"),
                 capDrop: try parseStringList(serviceMap["cap_drop"], location: "Service '\(name)' cap_drop"),
                 dns: try parseDNSList(serviceMap["dns"], serviceName: name),
-                dnsSearch: try parseStringList(serviceMap["dns_search"], location: "Service '\(name)' dns_search", allowScalar: true),
+                dnsSearch: try parseStringList(serviceMap["dns_search"], location: "Service '\(name)' dns_search", allowScalar: true, allowEmpty: true),
                 domainName: domainName,
-                dnsOptions: try parseStringList(serviceMap["dns_opt"], location: "Service '\(name)' dns_opt"),
+                dnsOptions: try parseStringList(serviceMap["dns_opt"], location: "Service '\(name)' dns_opt", allowEmpty: true),
                 ulimits: try parseUlimits(serviceMap["ulimits"], location: "Service '\(name)' ulimits"),
                 secrets: try parseFileGrants(serviceMap["secrets"], defaultTargetPrefix: "/run/secrets", serviceName: name, location: "secrets"),
                 configs: try parseFileGrants(serviceMap["configs"], defaultTargetPrefix: "/", serviceName: name, location: "configs"),
@@ -2640,12 +2640,7 @@ struct ComposeParser {
 
     private func parseDNSList(_ node: YAMLValue?, serviceName: String) throws -> [String] {
         let location = "Service '\(serviceName)' dns"
-        let addresses = try parseStringList(node, location: location, allowScalar: true)
-        let entries = node?.array == nil && !addresses.isEmpty ? [location] : addresses.indices.map { "\(location)[\($0)]" }
-        for (index, address) in addresses.enumerated() where !isValidIPAddress(address, version: .any) {
-            throw ComposeError.invalidCompose("\(entries[index]) must be a valid IPv4 or IPv6 address")
-        }
-        return addresses
+        return try parseStringList(node, location: location, allowScalar: true, allowEmpty: true).filter { !$0.isEmpty }
     }
 
     private func parseIPAddressMap(_ node: YAMLValue?, location: String) throws -> [String: String] {
@@ -3402,15 +3397,16 @@ struct ComposeParser {
         return value
     }
 
-    private func parseStringList(_ node: YAMLValue?, location: String, allowScalar: Bool = false) throws -> [String] {
+    private func parseStringList(_ node: YAMLValue?, location: String, allowScalar: Bool = false, allowEmpty: Bool = false) throws -> [String] {
         guard let node else { return [] }
+        let parseString = allowEmpty ? parseRequiredStringValue : parseRequiredString
         if let array = node.array {
             return try array.enumerated().map { index, item in
-                try parseRequiredString(item, location: "\(location)[\(index)]")
+                try parseString(item, "\(location)[\(index)]")
             }
         }
         if allowScalar {
-            return [try parseRequiredString(node, location: location)]
+            return [try parseString(node, location)]
         }
         throw ComposeError.invalidCompose("\(location) must be \(allowScalar ? "a string or list of strings" : "a list of strings")")
     }
