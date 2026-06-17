@@ -1654,9 +1654,9 @@ if (cd "$bad_build_boolean_shape_dir" && "$binary" config >/tmp/apple-compose-ba
 fi
 grep -F "build.no_cache must be a boolean value or boolean string" /tmp/apple-compose-bad-build-boolean-shape.out >/dev/null
 
-bad_depends_boolean_shape_dir="$tmpdir/bad-depends-boolean-shape"
-mkdir -p "$bad_depends_boolean_shape_dir"
-cat > "$bad_depends_boolean_shape_dir/compose.yaml" <<'YAML'
+depends_boolean_string_dir="$tmpdir/depends-boolean-string"
+mkdir -p "$depends_boolean_string_dir"
+cat > "$depends_boolean_string_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: nginx
@@ -1667,11 +1667,8 @@ services:
   db:
     image: postgres
 YAML
-if (cd "$bad_depends_boolean_shape_dir" && "$binary" config >/tmp/apple-compose-bad-depends-boolean-shape.out 2>&1); then
-  echo "expected string depends_on booleans to be rejected" >&2
-  exit 1
-fi
-grep -F "depends_on.db.required must be a boolean value" /tmp/apple-compose-bad-depends-boolean-shape.out >/dev/null
+(cd "$depends_boolean_string_dir" && "$binary" config >/tmp/apple-compose-depends-boolean-string.out)
+grep -F "required: 'false'" /tmp/apple-compose-depends-boolean-string.out >/dev/null
 
 disabled_resource_defaults_dir="$tmpdir/disabled-resource-defaults"
 mkdir -p "$disabled_resource_defaults_dir"
@@ -5449,7 +5446,7 @@ if (cd "$bad_depends_bool_dir" && "$binary" config >/tmp/apple-compose-bad-depen
   echo "expected invalid depends_on boolean field to be rejected" >&2
   exit 1
 fi
-grep -F "depends_on.db.required must be a boolean value" /tmp/apple-compose-bad-depends-bool.out >/dev/null
+grep -F "depends_on.db.required must be a boolean value or boolean string" /tmp/apple-compose-bad-depends-bool.out >/dev/null
 
 bad_service_scalar_dir="$tmpdir/bad-service-scalar"
 mkdir -p "$bad_service_scalar_dir"

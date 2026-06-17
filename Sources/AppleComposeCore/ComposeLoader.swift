@@ -1240,7 +1240,7 @@ struct ComposeParser {
             return (key, ServiceDependency(
                 condition: condition,
                 restart: try parseOptionalBoolOrString(dependency["restart"], location: "Service '\(serviceName)' depends_on.\(key).restart") ?? false,
-                required: try parseOptionalBoolLiteral(dependency["required"], location: "Service '\(serviceName)' depends_on.\(key).required") ?? true
+                required: try parseOptionalBoolOrString(dependency["required"], location: "Service '\(serviceName)' depends_on.\(key).required") ?? true
             ))
         })
     }
