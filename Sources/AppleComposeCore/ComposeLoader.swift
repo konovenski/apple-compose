@@ -1283,7 +1283,10 @@ struct ComposeParser {
     }
 
     private func parseEnvFileFormat(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let format = try parseOptionalString(node, location: location) else {
+        guard let format = try parseOptionalString(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        if format.isEmpty {
             return nil
         }
         let normalized = format.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

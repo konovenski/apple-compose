@@ -6352,6 +6352,50 @@ if (cd "$bad_env_format_shape_dir" && "$binary" config >/tmp/apple-compose-bad-e
 fi
 grep -F "env_file[0].format must be a string" /tmp/apple-compose-bad-env-format-shape.out >/dev/null
 
+env_empty_format_dir="$tmpdir/env-empty-format"
+mkdir -p "$env_empty_format_dir"
+cat > "$env_empty_format_dir/.env" <<'EOF'
+APP_TAG=3.0
+EOF
+cat > "$env_empty_format_dir/app.env" <<'EOF'
+PARSED=${APP_TAG}
+MULTI='first
+second'
+EOF
+cat > "$env_empty_format_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    env_file:
+      - path: app.env
+        format: ""
+YAML
+env_empty_format_plan="$(cd "$env_empty_format_dir" && "$binary" plan)"
+grep -F -- "--env PARSED=3.0" <<<"$env_empty_format_plan" >/dev/null
+if grep -F '${APP_TAG}' <<<"$env_empty_format_plan" >/dev/null; then
+  echo "expected empty env_file.format to use Compose parsing, not raw parsing" >&2
+  exit 1
+fi
+
+bad_env_whitespace_format_dir="$tmpdir/bad-env-whitespace-format"
+mkdir -p "$bad_env_whitespace_format_dir"
+cat > "$bad_env_whitespace_format_dir/app.env" <<'EOF'
+APP=ok
+EOF
+cat > "$bad_env_whitespace_format_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    env_file:
+      - path: app.env
+        format: "   "
+YAML
+if (cd "$bad_env_whitespace_format_dir" && "$binary" config >/tmp/apple-compose-bad-env-whitespace-format.out 2>&1); then
+  echo "expected whitespace env_file.format to be rejected" >&2
+  exit 1
+fi
+grep -F "env_file[0].format must be raw or compose" /tmp/apple-compose-bad-env-whitespace-format.out >/dev/null
+
 bad_env_format_dir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir" "$reset_dir" "$extends_dir" "$include_dir" "$envvars_dir" "$disabled_env_dir" "$project_name_dir" "$selection_dir" "$pull_policy_dir" "$time_pull_dir" "$bad_env_format_dir"' EXIT
 cat > "$bad_env_format_dir/app.env" <<'EOF'
