@@ -1423,43 +1423,9 @@ struct ComposeParser {
         guard let array = node.array else {
             throw ComposeError.invalidCompose("Service '\(serviceName)' expose must be a list of strings or numbers")
         }
-        let entries = try array.enumerated().map { index, item in
-            try parseRequiredStringOrNumber(item, location: "Service '\(serviceName)' expose[\(index)]")
+        return try array.enumerated().map { index, item in
+            try parseRequiredStringOrNumber(item, location: "Service '\(serviceName)' expose[\(index)]", allowEmpty: true)
         }
-        for (index, entry) in entries.enumerated() {
-            try validateExposeEntry(entry, location: "Service '\(serviceName)' expose[\(index)]")
-        }
-        return entries
-    }
-
-    private func validateExposeEntry(_ entry: String, location: String) throws {
-        let pieces = entry.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-        guard !pieces.isEmpty, !pieces[0].isEmpty, !pieces[0].contains(":") else {
-            throw ComposeError.invalidCompose("\(location) must use container ports only: <port>[/protocol] or <start-end>[/protocol]")
-        }
-
-        let range = pieces[0].split(separator: "-", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-        guard range.count == 1 || range.count == 2 else {
-            throw ComposeError.invalidCompose("\(location) must use <port>[/protocol] or <start-end>[/protocol]")
-        }
-        guard let start = parseExposePort(range[0]) else {
-            throw ComposeError.invalidCompose("\(location) must use numeric container ports")
-        }
-        if range.count == 2 {
-            guard let end = parseExposePort(range[1]) else {
-                throw ComposeError.invalidCompose("\(location) must use numeric container ports")
-            }
-            guard start <= end else {
-                throw ComposeError.invalidCompose("\(location) port range start must be less than or equal to the end")
-            }
-        }
-    }
-
-    private func parseExposePort(_ value: String) -> Int? {
-        guard !value.isEmpty, value.allSatisfy(\.isNumber), let port = Int(value), (1...65535).contains(port) else {
-            return nil
-        }
-        return port
     }
 
     private func validatePortValue(_ value: String, location: String, allowRange: Bool, allowZero: Bool) throws {

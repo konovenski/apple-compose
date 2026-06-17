@@ -1497,6 +1497,10 @@ services:
     expose:
       - 8080
       - "9090-9091/udp"
+      - ""
+      - "   "
+      - abc
+      - "127.0.0.1:8080"
 YAML
 expose_plan="$(cd "$expose_dir" && "$binary" plan)"
 grep -F "expose_demo-api-1" <<<"$expose_plan" >/dev/null
@@ -1523,21 +1527,6 @@ if (cd "$bad_expose_entry_dir" && "$binary" config >/tmp/apple-compose-bad-expos
   exit 1
 fi
 grep -F "expose[0] must be a non-empty string or number" /tmp/apple-compose-bad-expose-entry.out >/dev/null
-
-bad_expose_host_dir="$tmpdir/bad-expose-host"
-mkdir -p "$bad_expose_host_dir"
-cat > "$bad_expose_host_dir/compose.yaml" <<'YAML'
-services:
-  api:
-    image: nginx
-    expose:
-      - "127.0.0.1:8080"
-YAML
-if (cd "$bad_expose_host_dir" && "$binary" config >/tmp/apple-compose-bad-expose-host.out 2>&1); then
-  echo "expected host-bound expose syntax to be rejected" >&2
-  exit 1
-fi
-grep -F "expose[0] must use container ports only" /tmp/apple-compose-bad-expose-host.out >/dev/null
 
 expose_protocol_dir="$tmpdir/expose-protocol"
 mkdir -p "$expose_protocol_dir"
