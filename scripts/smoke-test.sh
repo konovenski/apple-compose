@@ -2521,6 +2521,12 @@ if grep -F "services.database: image/build" /tmp/apple-compose-provider-gap.out 
   echo "expected active provider services not to require image/build" >&2
   exit 1
 fi
+provider_gap_plan="$(cd "$provider_gap_dir" && "$binary" plan)"
+grep -F "services.database: provider" <<<"$provider_gap_plan" >/dev/null
+if grep -F "container run --detach" <<<"$provider_gap_plan" >/dev/null; then
+  echo "expected active provider services to be omitted from generated Apple container commands" >&2
+  exit 1
+fi
 
 bad_provider_options_shape_dir="$tmpdir/bad-provider-options-shape"
 mkdir -p "$bad_provider_options_shape_dir"

@@ -75,6 +75,9 @@ public struct CompatibilityAnalyzer {
         var models: Set<String> = []
 
         for service in services {
+            if hasActiveProvider(service.raw.map?["provider"]) {
+                continue
+            }
             if networkModeIsNone(service.networkMode) {
                 continue
             }

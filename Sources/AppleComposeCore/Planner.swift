@@ -87,7 +87,7 @@ public struct ComposePlanner {
         switch options.action {
         case .up:
             commands = try planUp(project, services: services, containerBinary: options.containerBinary)
-            artifacts = try fileArtifacts(for: project, services: activeReplicaServices(services))
+            artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
             commands = planDown(project, services: services, containerBinary: options.containerBinary, removeVolumes: options.removeVolumes, removeProjectResources: options.serviceNames.isEmpty)
             artifacts = []
@@ -112,7 +112,7 @@ public struct ComposePlanner {
         switch action {
         case .up:
             commands = try planUp(project, services: services, containerBinary: containerBinary)
-            artifacts = try fileArtifacts(for: project, services: activeReplicaServices(services))
+            artifacts = try fileArtifacts(for: project, services: activeManagedReplicaServices(services))
         case .down:
             commands = planDown(project, services: services, containerBinary: containerBinary, removeVolumes: removeVolumes, removeProjectResources: serviceNames.isEmpty)
             artifacts = []
@@ -152,7 +152,7 @@ public struct ComposePlanner {
 
     private func planUp(_ project: ComposeProject, services: [ComposeService], containerBinary: String) throws -> [RuntimeCommand] {
         var commands: [RuntimeCommand] = []
-        let activeServices = activeReplicaServices(services)
+        let activeServices = activeManagedReplicaServices(services)
         let usedNetworks = collectUsedNetworks(project, services: activeServices)
         let usedVolumes = collectUsedVolumes(project, services: activeServices)
 
@@ -238,7 +238,7 @@ public struct ComposePlanner {
             commands.append(imageInspectCommand(for: service, project: project, containerBinary: containerBinary))
         }
 
-        for service in services {
+        for service in managedContainerServices(services) {
             for replica in replicaNumbers(for: service) {
                 let name = containerName(for: service, project: project, replica: replica)
                 commands += execHookCommands(service.preStop, service: service, project: project, containerName: name, containerBinary: containerBinary, allowFailure: true, lifecycleName: "pre_stop")
@@ -260,7 +260,8 @@ public struct ComposePlanner {
         removeProjectResources: Bool
     ) -> [RuntimeCommand] {
         var commands: [RuntimeCommand] = []
-        for service in services.reversed() {
+        let managedServices = managedContainerServices(services)
+        for service in managedServices.reversed() {
             for replica in replicaNumbers(for: service).reversed() {
                 let name = containerName(for: service, project: project, replica: replica)
                 commands += execHookCommands(service.preStop, service: service, project: project, containerName: name, containerBinary: containerBinary, allowFailure: true, lifecycleName: "pre_stop")
@@ -273,7 +274,7 @@ public struct ComposePlanner {
             return commands
         }
 
-        for key in collectUsedNetworks(project, services: services).sorted().reversed() {
+        for key in collectUsedNetworks(project, services: managedServices).sorted().reversed() {
             let network = project.networks[key] ?? ComposeNetwork(key: key, name: nil, external: false, driver: nil, driverOptions: [:], labels: [:], internalNetwork: false, ipamSubnets: [], enableIPv4: nil, enableIPv6: nil)
             if !network.external {
                 commands.append(RuntimeCommand(containerBinary, ["network", "delete", actualNetworkName(network, project: project)], allowFailure: true))
@@ -281,7 +282,7 @@ public struct ComposePlanner {
         }
 
         if removeVolumes {
-            let usedVolumes = collectUsedVolumes(project, services: services)
+            let usedVolumes = collectUsedVolumes(project, services: managedServices)
             for key in usedVolumes.keys.sorted().reversed() {
                 let volume = usedVolumes[key] ?? ComposeVolume(key: key, name: nil, external: false, driver: nil, driverOptions: [:], labels: [:])
                 if !volume.external {
@@ -1214,6 +1215,70 @@ public struct ComposePlanner {
 
     private func activeReplicaServices(_ services: [ComposeService]) -> [ComposeService] {
         services.filter { $0.replicas > 0 }
+    }
+
+    private func activeManagedReplicaServices(_ services: [ComposeService]) -> [ComposeService] {
+        activeReplicaServices(managedContainerServices(services))
+    }
+
+    private func managedContainerServices(_ services: [ComposeService]) -> [ComposeService] {
+        services.filter { !hasActiveProvider($0) }
+    }
+
+    private func hasActiveProvider(_ service: ComposeService) -> Bool {
+        guard let map = service.raw.map, let provider = map["provider"] else {
+            return false
+        }
+        return !isEmptyNoopValue(provider) && !isProviderNoopValue(provider)
+    }
+
+    private func isProviderNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .map(let map):
+            guard let type = map["type"], isEmptyStringValue(type) else {
+                return false
+            }
+            return map.allSatisfy { key, value in
+                switch key {
+                case "type":
+                    return isEmptyStringValue(value)
+                case "options":
+                    return isEmptyNoopValue(value)
+                default:
+                    return key.hasPrefix("x-")
+                }
+            }
+        case .reset(let value), .overrideValue(let value):
+            return isProviderNoopValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isEmptyStringValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .string(let string):
+            return string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .reset(let value), .overrideValue(let value):
+            return isEmptyStringValue(value)
+        default:
+            return false
+        }
+    }
+
+    private func isEmptyNoopValue(_ value: YAMLValue) -> Bool {
+        switch value {
+        case .null:
+            return true
+        case .array(let values):
+            return values.isEmpty
+        case .map(let values):
+            return values.isEmpty
+        case .reset(let value), .overrideValue(let value):
+            return isEmptyNoopValue(value)
+        case .string, .bool, .int, .double:
+            return false
+        }
     }
 
     private func actualNetworkName(_ network: ComposeNetwork, project: ComposeProject) -> String {
