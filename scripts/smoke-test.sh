@@ -2477,6 +2477,40 @@ if (cd "$bad_top_models_missing_model_dir" && "$binary" config >/tmp/apple-compo
 fi
 grep -F "models.llm.model is required" /tmp/apple-compose-bad-top-models-missing-model.out >/dev/null
 
+bad_top_models_context_string_dir="$tmpdir/bad-top-models-context-string"
+mkdir -p "$bad_top_models_context_string_dir"
+cat > "$bad_top_models_context_string_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ai/smollm2
+    context_size: "1024"
+services:
+  web:
+    image: nginx
+YAML
+if (cd "$bad_top_models_context_string_dir" && "$binary" config >/tmp/apple-compose-bad-top-models-context-string.out 2>&1); then
+  echo "expected string top-level model context_size to be rejected" >&2
+  exit 1
+fi
+grep -F "models.llm.context_size must be an integer value" /tmp/apple-compose-bad-top-models-context-string.out >/dev/null
+
+bad_top_models_context_null_dir="$tmpdir/bad-top-models-context-null"
+mkdir -p "$bad_top_models_context_null_dir"
+cat > "$bad_top_models_context_null_dir/compose.yaml" <<'YAML'
+models:
+  llm:
+    model: ai/smollm2
+    context_size:
+services:
+  web:
+    image: nginx
+YAML
+if (cd "$bad_top_models_context_null_dir" && "$binary" config >/tmp/apple-compose-bad-top-models-context-null.out 2>&1); then
+  echo "expected null top-level model context_size to be rejected" >&2
+  exit 1
+fi
+grep -F "models.llm.context_size must be an integer value" /tmp/apple-compose-bad-top-models-context-null.out >/dev/null
+
 top_models_name_dir="$tmpdir/top-models-name"
 mkdir -p "$top_models_name_dir"
 cat > "$top_models_name_dir/compose.yaml" <<'YAML'

@@ -771,7 +771,7 @@ struct ComposeParser {
                 throw ComposeError.invalidCompose("models.\(name).model is required")
             }
             _ = try parseOptionalString(modelMap["name"], location: "models.\(name).name")
-            _ = try parseOptionalInt(modelMap["context_size"], location: "models.\(name).context_size")
+            _ = try parseOptionalLiteralInt(modelMap["context_size"], location: "models.\(name).context_size")
             _ = try parseStringList(modelMap["runtime_flags"], location: "models.\(name).runtime_flags")
         }
         return modelNames
@@ -3427,6 +3427,20 @@ struct ComposeParser {
             return parsed
         case .reset(let value), .overrideValue(let value):
             return try parseOptionalInt(value, location: location)
+        default:
+            throw ComposeError.invalidCompose("\(location) must be an integer value")
+        }
+    }
+
+    private func parseOptionalLiteralInt(_ node: YAMLValue?, location: String) throws -> Int? {
+        guard let node else { return nil }
+        switch node {
+        case .int(let value, _):
+            return value
+        case .double(let value) where value.rounded() == value:
+            return Int(value)
+        case .reset(let value), .overrideValue(let value):
+            return try parseOptionalLiteralInt(value, location: location)
         default:
             throw ComposeError.invalidCompose("\(location) must be an integer value")
         }
