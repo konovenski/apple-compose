@@ -2977,6 +2977,40 @@ if (cd "$bad_develop_exec_shape_dir" && "$binary" config >/tmp/apple-compose-bad
 fi
 grep -F "develop.watch[0].exec must be a mapping" /tmp/apple-compose-bad-develop-exec-shape.out >/dev/null
 
+bad_develop_exec_null_dir="$tmpdir/bad-develop-exec-null"
+mkdir -p "$bad_develop_exec_null_dir"
+cat > "$bad_develop_exec_null_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    develop:
+      watch:
+        - action: sync+exec
+          path: .
+          target: /app
+          exec:
+YAML
+if (cd "$bad_develop_exec_null_dir" && "$binary" config >/tmp/apple-compose-bad-develop-exec-null.out 2>&1); then
+  echo "expected null develop.watch exec to be rejected" >&2
+  exit 1
+fi
+grep -F "develop.watch[0].exec must be a mapping" /tmp/apple-compose-bad-develop-exec-null.out >/dev/null
+
+develop_sync_exec_no_exec_dir="$tmpdir/develop-sync-exec-no-exec"
+mkdir -p "$develop_sync_exec_no_exec_dir"
+cat > "$develop_sync_exec_no_exec_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    develop:
+      watch:
+        - action: sync+exec
+          path: .
+          target: /app
+YAML
+(cd "$develop_sync_exec_no_exec_dir" && "$binary" config >/tmp/apple-compose-develop-sync-exec-no-exec.out)
+grep -F "sync+exec" /tmp/apple-compose-develop-sync-exec-no-exec.out >/dev/null
+
 bad_develop_exec_command_dir="$tmpdir/bad-develop-exec-command"
 mkdir -p "$bad_develop_exec_command_dir"
 cat > "$bad_develop_exec_command_dir/compose.yaml" <<'YAML'

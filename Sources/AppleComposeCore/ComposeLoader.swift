@@ -2398,9 +2398,6 @@ struct ComposeParser {
 
     private func parseDevelopWatchExec(_ node: YAMLValue?, location: String) throws {
         guard let node else { return }
-        if case .null = node {
-            return
-        }
         guard let map = node.map else {
             throw ComposeError.invalidCompose("\(location) must be a mapping")
         }
