@@ -58,7 +58,7 @@ public struct CommandRunner {
     private func write(_ artifact: FileArtifact) throws {
         let directory = artifact.path.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try artifact.contents.write(to: artifact.path, atomically: true, encoding: .utf8)
+        try artifact.contents.write(to: artifact.path, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: artifact.mode], ofItemAtPath: artifact.path.path)
     }
 }

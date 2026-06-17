@@ -894,13 +894,10 @@ public struct CompatibilityAnalyzer {
         ]
     }
 
-    private func analyzeConfigGrantOptions(_ grant: ServiceFileGrant, config: ComposeConfig, location: String) -> [CompatibilityIssue] {
+    private func analyzeConfigGrantOptions(_ grant: ServiceFileGrant, config _: ComposeConfig, location: String) -> [CompatibilityIssue] {
         var issues: [CompatibilityIssue] = []
         if grant.uid != nil || grant.gid != nil {
-            issues.append(.init(.error, location, "uid/gid", "Compose configs can set mounted file ownership, but Apple container bind mounts do not expose container-visible ownership remapping. Config mode is applied for generated configs."))
-        }
-        if grant.mode != nil && config.file != nil {
-            issues.append(.init(.error, location, "mode", "Compose configs can set mounted file mode, but apple-compose currently bind-mounts file-backed configs directly and cannot apply a distinct container-visible mode."))
+            issues.append(.init(.error, location, "uid/gid", "Compose configs can set mounted file ownership, but Apple container bind mounts do not expose container-visible ownership remapping. Config mode is applied by generated config artifacts."))
         }
         return issues
     }

@@ -50,13 +50,20 @@ public struct RuntimeCommand: Equatable {
 
 public struct FileArtifact: Equatable {
     public var path: URL
-    public var contents: String
+    public var contents: Data
     public var mode: Int
     public var sensitive: Bool
 
     public init(path: URL, contents: String, mode: Int, sensitive: Bool) {
         self.path = path
-        self.contents = contents
+        self.contents = Data(contents.utf8)
+        self.mode = mode
+        self.sensitive = sensitive
+    }
+
+    public init(path: URL, data: Data, mode: Int, sensitive: Bool) {
+        self.path = path
+        self.contents = data
         self.mode = mode
         self.sensitive = sensitive
     }
@@ -751,7 +758,7 @@ public struct ComposePlanner {
         }
 
         for grant in service.configs {
-            guard let source = try configSourcePath(grant.source, project: project) else { continue }
+            guard let source = try configSourcePath(grant, project: project) else { continue }
             let target = grant.target ?? "/\(grant.source)"
             mounts.append(MountSpec(kind: .mount, value: "type=bind,source=\(source),target=\(target),readonly"))
         }
@@ -791,11 +798,18 @@ public struct ComposePlanner {
                 artifacts[path.path] = FileArtifact(path: path, contents: contents, mode: mode, sensitive: true)
             }
             for grant in service.configs {
-                guard let config = project.configs[grant.source], !config.external, config.file == nil else { continue }
-                let path = generatedArtifactPath(kind: "configs", key: grant.source, project: project)
-                let contents = try generatedConfigContents(config, project: project)
                 let mode = permissionMode(grant.mode, defaultMode: 0o444)
-                artifacts[path.path] = FileArtifact(path: path, contents: contents, mode: mode, sensitive: false)
+                guard let config = project.configs[grant.source], !config.external else { continue }
+                let path = generatedConfigArtifactPath(grant, project: project)
+                if let file = config.file {
+                    guard grant.mode != nil else { continue }
+                    let source = resolvePath(file, relativeTo: project.workingDirectory)
+                    let data = try Data(contentsOf: source)
+                    artifacts[path.path] = FileArtifact(path: path, data: data, mode: mode, sensitive: false)
+                } else {
+                    let contents = try generatedConfigContents(config, project: project)
+                    artifacts[path.path] = FileArtifact(path: path, contents: contents, mode: mode, sensitive: false)
+                }
             }
         }
         return artifacts.values.sorted(by: { $0.path.path < $1.path.path })
@@ -869,16 +883,19 @@ public struct ComposePlanner {
         return generatedArtifactPath(kind: "secrets", key: key, project: project).path
     }
 
-    private func configSourcePath(_ key: String, project: ComposeProject) throws -> String? {
-        guard let config = project.configs[key] else { return nil }
+    private func configSourcePath(_ grant: ServiceFileGrant, project: ComposeProject) throws -> String? {
+        guard let config = project.configs[grant.source] else { return nil }
         if let file = config.file {
+            if grant.mode != nil {
+                return generatedConfigArtifactPath(grant, project: project).path
+            }
             return resolvePath(file, relativeTo: project.workingDirectory).path
         }
         if config.external {
             return nil
         }
         _ = try generatedConfigContents(config, project: project)
-        return generatedArtifactPath(kind: "configs", key: key, project: project).path
+        return generatedConfigArtifactPath(grant, project: project).path
     }
 
     private func generatedSecretContents(_ secret: ComposeSecret, project: ComposeProject) throws -> String {
@@ -910,6 +927,16 @@ public struct ComposePlanner {
             .appendingPathComponent(project.name)
             .appendingPathComponent(kind)
             .appendingPathComponent(safeArtifactName(key))
+    }
+
+    private func generatedConfigArtifactPath(_ grant: ServiceFileGrant, project: ComposeProject) -> URL {
+        let key: String
+        if let mode = grant.mode, !mode.isEmpty {
+            key = "\(grant.source).\(String(permissionMode(mode, defaultMode: 0o444), radix: 8))"
+        } else {
+            key = grant.source
+        }
+        return generatedArtifactPath(kind: "configs", key: key, project: project)
     }
 
     private func generatedBuildDockerfilePath(service: ComposeService, project: ComposeProject) -> URL {

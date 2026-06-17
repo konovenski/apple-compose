@@ -9829,7 +9829,7 @@ if ! (cd "$config_mode_dir" && "$binary" up --dry-run >/tmp/apple-compose-config
   echo "expected generated config mode to be supported" >&2
   exit 1
 fi
-grep -F ".apple-compose/config_mode/configs/app_config mode 440" /tmp/apple-compose-config-mode.out >/dev/null
+grep -F ".apple-compose/config_mode/configs/app_config.440 mode 440" /tmp/apple-compose-config-mode.out >/dev/null
 grep -F "target=/etc/app.conf,readonly" /tmp/apple-compose-config-mode.out >/dev/null
 if grep -F "uid/gid" /tmp/apple-compose-config-mode.out >/dev/null; then
   echo "expected generated config mode alone not to warn as unsupported ownership" >&2
@@ -9871,12 +9871,16 @@ configs:
   app_config:
     file: ./app.conf
 YAML
-if (cd "$file_config_mode_gap_dir" && "$binary" up --dry-run >/tmp/apple-compose-file-config-mode-gap.out 2>&1); then
-  echo "expected strict up to reject file-backed config mode options" >&2
+if ! (cd "$file_config_mode_gap_dir" && "$binary" up --dry-run >/tmp/apple-compose-file-config-mode-gap.out 2>&1); then
+  echo "expected strict up to support file-backed config mode options" >&2
   exit 1
 fi
-grep -F "services.web.configs.app_config: mode" /tmp/apple-compose-file-config-mode-gap.out >/dev/null
-grep -F "file-backed configs directly" /tmp/apple-compose-file-config-mode-gap.out >/dev/null
+grep -F ".apple-compose/file-config-mode-gap/configs/app_config.440 mode 440" /tmp/apple-compose-file-config-mode-gap.out >/dev/null
+grep -F ".apple-compose/file-config-mode-gap/configs/app_config.440,target=/app_config,readonly" /tmp/apple-compose-file-config-mode-gap.out >/dev/null
+if grep -F "services.web.configs.app_config: mode" /tmp/apple-compose-file-config-mode-gap.out >/dev/null; then
+  echo "expected file-backed config mode not to be reported as an Apple gap" >&2
+  exit 1
+fi
 
 bad_build_grant_uid_shape_dir="$tmpdir/bad-build-grant-uid-shape"
 mkdir -p "$bad_build_grant_uid_shape_dir"
