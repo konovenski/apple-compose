@@ -1344,8 +1344,8 @@ struct ComposeParser {
                 published: published,
                 hostIP: hostIP,
                 protocolName: protocolName,
-                appProtocol: try parseOptionalString(map["app_protocol"], location: "Service '\(serviceName)' ports[\(index)].app_protocol"),
-                name: try parseOptionalString(map["name"], location: "Service '\(serviceName)' ports[\(index)].name")
+                appProtocol: try parseOptionalExactNonEmptyString(map["app_protocol"], location: "Service '\(serviceName)' ports[\(index)].app_protocol"),
+                name: try parseOptionalExactNonEmptyString(map["name"], location: "Service '\(serviceName)' ports[\(index)].name")
             )
         }
     }
@@ -3230,6 +3230,13 @@ struct ComposeParser {
         default:
             throw ComposeError.invalidCompose("\(location) must be a string")
         }
+    }
+
+    private func parseOptionalExactNonEmptyString(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalString(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        return value.isEmpty ? nil : value
     }
 
     private func parseOptionalUnsettableString(_ node: YAMLValue?, location: String) throws -> String? {

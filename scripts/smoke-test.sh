@@ -6608,6 +6608,38 @@ grep -F -- "[::1]:8081:81" <<<"$port_host_ip_plan" >/dev/null
 grep -F -- "[::1]:8082:82/udp" <<<"$port_host_ip_plan" >/dev/null
 grep -F -- "[::1]:8083:83" <<<"$port_host_ip_plan" >/dev/null
 
+port_empty_metadata_dir="$tmpdir/port-empty-metadata"
+mkdir -p "$port_empty_metadata_dir"
+cat > "$port_empty_metadata_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    ports:
+      - target: 80
+        published: "8080"
+        protocol: ""
+        mode: ""
+        name: ""
+        app_protocol: ""
+      - target: 81
+        published: "8081"
+        name: "   "
+        app_protocol: "   "
+YAML
+port_empty_metadata_plan="$(cd "$port_empty_metadata_dir" && "$binary" plan)"
+grep -F -- "--publish 8080:80" <<<"$port_empty_metadata_plan" >/dev/null
+grep -F -- "--publish 8081:81" <<<"$port_empty_metadata_plan" >/dev/null
+if grep -F "services.web.ports[0]: name" <<<"$port_empty_metadata_plan" >/dev/null; then
+  echo "expected empty long-form port name to be treated as unset" >&2
+  exit 1
+fi
+if grep -F "services.web.ports[0]: app_protocol" <<<"$port_empty_metadata_plan" >/dev/null; then
+  echo "expected empty long-form port app_protocol to be treated as unset" >&2
+  exit 1
+fi
+grep -F "services.web.ports[1]: name" <<<"$port_empty_metadata_plan" >/dev/null
+grep -F "services.web.ports[1]: app_protocol" <<<"$port_empty_metadata_plan" >/dev/null
+
 bad_port_shape_dir="$tmpdir/bad-port-shape"
 mkdir -p "$bad_port_shape_dir"
 cat > "$bad_port_shape_dir/compose.yaml" <<'YAML'
