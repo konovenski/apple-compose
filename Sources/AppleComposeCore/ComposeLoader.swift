@@ -3367,7 +3367,7 @@ struct ComposeParser {
             return value ? "true" : "false"
         case .string(let value):
             if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                throw ComposeError.invalidCompose("\(location) must be a boolean value or non-empty string")
+                return nil
             }
             return value
         case .reset(let value), .overrideValue(let value):

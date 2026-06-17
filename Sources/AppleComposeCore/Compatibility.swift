@@ -690,10 +690,10 @@ public struct CompatibilityAnalyzer {
             if let privileged = buildMap["privileged"], exactBool(privileged) != false {
                 issues.append(.init(.error, "\(location).build", "privileged", "Privileged image builds are not exposed by Apple container build."))
             }
-            if let provenance = buildMap["provenance"], exactBool(provenance) != false {
+            if let provenance = buildMap["provenance"], !isEmptyStringValue(provenance), exactBool(provenance) != false {
                 issues.append(.init(.error, "\(location).build", "provenance", "Build provenance attestations are not exposed by Apple container build."))
             }
-            if let sbom = buildMap["sbom"], exactBool(sbom) != false {
+            if let sbom = buildMap["sbom"], !isEmptyStringValue(sbom), exactBool(sbom) != false {
                 issues.append(.init(.error, "\(location).build", "sbom", "Build SBOM attestations are not exposed by Apple container build."))
             }
             if let networkValue = buildMap["network"],

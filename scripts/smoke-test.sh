@@ -9497,6 +9497,27 @@ if grep -F "attestations are not exposed" <<<"$attestation_false_plan" >/dev/nul
   exit 1
 fi
 
+attestation_empty_dir="$tmpdir/attestation-empty"
+mkdir -p "$attestation_empty_dir"
+cat > "$attestation_empty_dir/compose.yaml" <<'YAML'
+name: attestation_empty
+services:
+  web:
+    image: example/attest-empty
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM busybox
+      provenance: ""
+      sbom: ""
+YAML
+attestation_empty_plan="$(cd "$attestation_empty_dir" && "$binary" plan)"
+grep -F "container build --tag example/attest-empty" <<<"$attestation_empty_plan" >/dev/null
+if grep -F "attestations are not exposed" <<<"$attestation_empty_plan" >/dev/null; then
+  echo "expected empty build attestations to be accepted as default behavior" >&2
+  exit 1
+fi
+
 bad_attestation_shape_dir="$tmpdir/bad-attestation-shape"
 mkdir -p "$bad_attestation_shape_dir"
 cat > "$bad_attestation_shape_dir/compose.yaml" <<'YAML'
