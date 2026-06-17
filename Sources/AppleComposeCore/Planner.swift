@@ -1225,7 +1225,7 @@ public struct ComposePlanner {
             return nil
         }
         switch driver.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "bridge", "default":
+        case "", "bridge", "default":
             return nil
         default:
             return driver

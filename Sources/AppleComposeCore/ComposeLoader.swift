@@ -1081,7 +1081,7 @@ struct ComposeParser {
                 key: key,
                 name: try resourceName(networkMap, location: "networks.\(key)"),
                 external: external,
-                driver: try parseOptionalString(networkMap["driver"], location: "networks.\(key).driver"),
+                driver: try parseOptionalUnsettableString(networkMap["driver"], location: "networks.\(key).driver"),
                 driverOptions: try parseDriverOptionsMap(networkMap["driver_opts"], location: "networks.\(key).driver_opts"),
                 labels: try parseLabelMap(networkMap["labels"], location: "networks.\(key).labels"),
                 internalNetwork: try parseOptionalBoolOrString(networkMap["internal"], location: "networks.\(key).internal") ?? false,
@@ -1113,7 +1113,7 @@ struct ComposeParser {
                 key: key,
                 name: try resourceName(volumeMap, location: "volumes.\(key)"),
                 external: external,
-                driver: try parseOptionalString(volumeMap["driver"], location: "volumes.\(key).driver"),
+                driver: try parseOptionalUnsettableString(volumeMap["driver"], location: "volumes.\(key).driver"),
                 driverOptions: try parseDriverOptionsMap(volumeMap["driver_opts"], location: "volumes.\(key).driver_opts"),
                 labels: try parseLabelMap(volumeMap["labels"], location: "volumes.\(key).labels")
             )

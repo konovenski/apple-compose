@@ -3649,6 +3649,53 @@ grep -F "container volume inspect legacy_volume" <<<"$external_name_map_plan" >/
 grep -F -- "--network legacy_network" <<<"$external_name_map_plan" >/dev/null
 grep -F "source=legacy_volume,target=/data" <<<"$external_name_map_plan" >/dev/null
 
+resource_driver_defaults_dir="$tmpdir/resource-driver-defaults"
+mkdir -p "$resource_driver_defaults_dir"
+cat > "$resource_driver_defaults_dir/compose.yaml" <<'YAML'
+name: resource_driver_defaults
+services:
+  app:
+    image: nginx
+    networks:
+      - empty_net
+      - bridge_net
+    volumes:
+      - empty_volume:/empty
+      - default_volume:/default
+      - local_volume:/local
+networks:
+  empty_net:
+    driver: ""
+  bridge_net:
+    driver: bridge
+volumes:
+  empty_volume:
+    driver: ""
+  default_volume:
+    driver: default
+  local_volume:
+    driver: local
+YAML
+resource_driver_defaults_config="$(cd "$resource_driver_defaults_dir" && "$binary" config)"
+if grep -F 'driver: ""' <<<"$resource_driver_defaults_config" >/dev/null; then
+  echo "expected empty top-level resource drivers to be omitted from normalized config" >&2
+  exit 1
+fi
+resource_driver_defaults_plan="$(cd "$resource_driver_defaults_dir" && "$binary" plan)"
+grep -F "container network create" <<<"$resource_driver_defaults_plan" | grep -F "resource_driver_defaults_empty_net" >/dev/null
+grep -F "container network create" <<<"$resource_driver_defaults_plan" | grep -F "resource_driver_defaults_bridge_net" >/dev/null
+grep -F "container volume create" <<<"$resource_driver_defaults_plan" | grep -F "resource_driver_defaults_empty_volume" >/dev/null
+grep -F "container volume create" <<<"$resource_driver_defaults_plan" | grep -F "resource_driver_defaults_default_volume" >/dev/null
+grep -F "container volume create" <<<"$resource_driver_defaults_plan" | grep -F "resource_driver_defaults_local_volume" >/dev/null
+if grep -F -- "--plugin" <<<"$resource_driver_defaults_plan" >/dev/null; then
+  echo "expected empty/default network drivers not to request Apple network plugins" >&2
+  exit 1
+fi
+if grep -F "[error]" <<<"$resource_driver_defaults_plan" >/dev/null; then
+  echo "expected empty/default top-level resource drivers to be accepted as defaults" >&2
+  exit 1
+fi
+
 bad_external_name_conflict_dir="$tmpdir/bad-external-name-conflict"
 mkdir -p "$bad_external_name_conflict_dir"
 cat > "$bad_external_name_conflict_dir/compose.yaml" <<'YAML'
@@ -3774,6 +3821,25 @@ if (cd "$bad_volume_definition_key_dir" && "$binary" config >/tmp/apple-compose-
   exit 1
 fi
 grep -F "volumes.data contains unsupported key 'mountpoint'" /tmp/apple-compose-bad-volume-definition-key.out >/dev/null
+
+bad_volume_driver_dir="$tmpdir/bad-volume-driver"
+mkdir -p "$bad_volume_driver_dir"
+cat > "$bad_volume_driver_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    volumes:
+      - data:/data
+volumes:
+  data:
+    driver: custom
+YAML
+if (cd "$bad_volume_driver_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-volume-driver.out 2>&1); then
+  echo "expected strict up to reject active top-level volume drivers" >&2
+  exit 1
+fi
+grep -F "volumes.data: driver" /tmp/apple-compose-bad-volume-driver.out >/dev/null
+grep -F "Apple container volumes do not expose Docker volume drivers." /tmp/apple-compose-bad-volume-driver.out >/dev/null
 
 bad_secret_shape_dir="$tmpdir/bad-secret-shape"
 mkdir -p "$bad_secret_shape_dir"
