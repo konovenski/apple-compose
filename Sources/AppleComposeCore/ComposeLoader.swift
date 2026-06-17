@@ -2389,8 +2389,8 @@ struct ComposeParser {
             if ["sync", "sync+exec", "sync+restart"].contains(parsedAction ?? ""), target == nil {
                 throw ComposeError.invalidCompose("\(itemLocation).target is required for \(parsedAction ?? "sync")")
             }
-            _ = try parseStringList(watchMap["ignore"], location: "\(itemLocation).ignore", allowScalar: true)
-            _ = try parseStringList(watchMap["include"], location: "\(itemLocation).include", allowScalar: true)
+            _ = try parseStringList(watchMap["ignore"], location: "\(itemLocation).ignore", allowScalar: true, allowEmpty: true)
+            _ = try parseStringList(watchMap["include"], location: "\(itemLocation).include", allowScalar: true, allowEmpty: true)
             _ = try parseOptionalBoolLiteral(watchMap["initial_sync"], location: "\(itemLocation).initial_sync")
             try parseDevelopWatchExec(watchMap["exec"], location: "\(itemLocation).exec")
         }

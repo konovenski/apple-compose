@@ -2975,6 +2975,24 @@ services:
 YAML
 (cd "$develop_sync_exec_dir" && "$binary" config >/tmp/apple-compose-develop-sync-exec.out)
 
+develop_empty_patterns_dir="$tmpdir/develop-empty-patterns"
+mkdir -p "$develop_empty_patterns_dir"
+cat > "$develop_empty_patterns_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
+          ignore: ""
+          include:
+            - ""
+YAML
+(cd "$develop_empty_patterns_dir" && "$binary" config >/tmp/apple-compose-develop-empty-patterns.out)
+grep -F "ignore: ''" /tmp/apple-compose-develop-empty-patterns.out >/dev/null
+grep -F "include:" /tmp/apple-compose-develop-empty-patterns.out >/dev/null
+
 bad_develop_missing_action_dir="$tmpdir/bad-develop-missing-action"
 mkdir -p "$bad_develop_missing_action_dir"
 cat > "$bad_develop_missing_action_dir/compose.yaml" <<'YAML'
