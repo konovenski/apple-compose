@@ -1540,11 +1540,11 @@ struct ComposeParser {
             _ = try parseOptionalEnum(bind?["selinux"], allowed: ["z", "Z"], location: "Service '\(serviceName)' volumes[\(index)].bind.selinux")
             _ = try parseOptionalEnum(bind?["recursive"], allowed: ["disabled", "enabled", "readonly", "writable"], location: "Service '\(serviceName)' volumes[\(index)].bind.recursive")
             _ = try parseOptionalBoolOrString(volume?["nocopy"], location: "Service '\(serviceName)' volumes[\(index)].volume.nocopy")
-            _ = try parseOptionalString(volume?["subpath"], location: "Service '\(serviceName)' volumes[\(index)].volume.subpath")
+            _ = try parseOptionalString(volume?["subpath"], location: "Service '\(serviceName)' volumes[\(index)].volume.subpath", allowEmpty: true)
             let volumeLabels = try parseLabelMap(volume?["labels"], location: "Service '\(serviceName)' volumes[\(index)].volume.labels")
             _ = try parseOptionalByteValue(tmpfs?["size"], location: "Service '\(serviceName)' volumes[\(index)].tmpfs.size", allowDoubleScalar: false)
             _ = try parseOptionalStringOrNumber(tmpfs?["mode"], location: "Service '\(serviceName)' volumes[\(index)].tmpfs.mode")
-            _ = try parseOptionalString(image?["subpath"], location: "Service '\(serviceName)' volumes[\(index)].image.subpath")
+            _ = try parseOptionalString(image?["subpath"], location: "Service '\(serviceName)' volumes[\(index)].image.subpath", allowEmpty: true)
             let consistency = try parseOptionalString(map["consistency"], location: "Service '\(serviceName)' volumes[\(index)].consistency")
             volumes.append(ServiceVolume(
                 type: type,

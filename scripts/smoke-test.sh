@@ -8984,6 +8984,33 @@ fi
 grep -F "services.web.volumes[/data]: volume" /tmp/apple-compose-long-volume-option-gap.out >/dev/null
 grep -F "volume nocopy or subpath options" /tmp/apple-compose-long-volume-option-gap.out >/dev/null
 
+long_volume_option_noop_dir="$tmpdir/long-volume-option-noop"
+mkdir -p "$long_volume_option_noop_dir"
+cat > "$long_volume_option_noop_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    volumes:
+      - type: volume
+        source: data
+        target: /data
+        volume:
+          nocopy: false
+          subpath: ""
+volumes:
+  data: {}
+YAML
+if ! (cd "$long_volume_option_noop_dir" && "$binary" up --dry-run >/tmp/apple-compose-long-volume-option-noop.out 2>&1); then
+  cat /tmp/apple-compose-long-volume-option-noop.out >&2
+  echo "expected default volume nocopy/subpath values not to be Apple gaps" >&2
+  exit 1
+fi
+grep -F "source=long-volume-option-noop_data,target=/data" /tmp/apple-compose-long-volume-option-noop.out >/dev/null
+if grep -F "volume nocopy or subpath options" /tmp/apple-compose-long-volume-option-noop.out >/dev/null; then
+  echo "expected default volume nocopy/subpath values not to be reported" >&2
+  exit 1
+fi
+
 bad_long_volume_tmpfs_size_dir="$tmpdir/bad-long-volume-tmpfs-size"
 mkdir -p "$bad_long_volume_tmpfs_size_dir"
 cat > "$bad_long_volume_tmpfs_size_dir/compose.yaml" <<'YAML'

@@ -680,7 +680,9 @@ public struct CompatibilityAnalyzer {
             if volume.bind?["selinux"] != nil {
                 issues.append(.init(.warning, volumeLocation, "bind.selinux", "SELinux relabeling is ignored on platforms without SELinux, including Apple container hosts."))
             }
-            if volume.volume?["nocopy"] != nil || volume.volume?["subpath"] != nil {
+            let activeNocopy = exactBool(volume.volume?["nocopy"]) == true
+            let activeSubpath = exactString(volume.volume?["subpath"])?.isEmpty == false
+            if activeNocopy || activeSubpath {
                 issues.append(.init(.error, volumeLocation, "volume", "Apple container volume mounts do not expose Compose volume nocopy or subpath options."))
             }
             if !volume.volumeLabels.isEmpty {
