@@ -3796,7 +3796,7 @@ struct ComposeParser {
             throw ComposeError.invalidCompose("\(location) must be a mapping")
         }
         try rejectUnknownKeys(in: map, known: ["config", "driver", "options"], location: location)
-        _ = try parseOptionalString(map["driver"], location: "\(location).driver")
+        _ = try parseOptionalUnsettableString(map["driver"], location: "\(location).driver")
         _ = try parseStringValueMap(map["options"], location: "\(location).options")
         guard let configNode = map["config"] else { return [] }
         guard let config = configNode.array else {

@@ -150,10 +150,12 @@ public struct CompatibilityAnalyzer {
             }
             if let ipam = map["ipam"]?.map {
                 issues += unknownKeys(in: ipam, known: knownIPAMKeys, location: "\(location).ipam", kind: "network IPAM")
-                if ipam["driver"] != nil {
+                if let driver = ipam["driver"],
+                   !isEmptyStringValue(driver),
+                   exactString(driver)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "default" {
                     issues.append(.init(.error, "\(location).ipam", "driver", "Custom IPAM drivers are not exposed by Apple container CLI."))
                 }
-                if ipam["options"] != nil {
+                if let options = ipam["options"], !isEmptyNoopValue(options) {
                     issues.append(.init(.error, "\(location).ipam", "options", "Custom IPAM options are not exposed by Apple container CLI."))
                 }
                 for (index, config) in (ipam["config"]?.array ?? []).enumerated() {

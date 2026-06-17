@@ -4090,6 +4090,56 @@ if (cd "$bad_ipam_aux_value_dir" && "$binary" config >/tmp/apple-compose-bad-ipa
 fi
 grep -F "networks.appnet.ipam.config[0].aux_addresses.host1 must be a valid IPv4 or IPv6 address" /tmp/apple-compose-bad-ipam-aux-value.out >/dev/null
 
+ipam_defaults_dir="$tmpdir/ipam-defaults"
+mkdir -p "$ipam_defaults_dir"
+cat > "$ipam_defaults_dir/compose.yaml" <<'YAML'
+name: ipam_defaults
+services:
+  app:
+    image: nginx
+    networks:
+      - default_driver
+      - empty_driver
+networks:
+  default_driver:
+    ipam:
+      driver: default
+      options: {}
+      config:
+        - subnet: 172.29.0.0/16
+  empty_driver:
+    ipam:
+      driver: ""
+      options: {}
+YAML
+ipam_defaults_plan="$(cd "$ipam_defaults_dir" && "$binary" plan)"
+grep -F "ipam_defaults_default_driver" <<<"$ipam_defaults_plan" >/dev/null
+grep -F -- "--subnet 172.29.0.0/16" <<<"$ipam_defaults_plan" >/dev/null
+if grep -F "[error]" <<<"$ipam_defaults_plan" >/dev/null; then
+  echo "expected default/empty IPAM settings to be accepted as no-ops" >&2
+  exit 1
+fi
+
+bad_ipam_driver_dir="$tmpdir/bad-ipam-driver"
+mkdir -p "$bad_ipam_driver_dir"
+cat > "$bad_ipam_driver_dir/compose.yaml" <<'YAML'
+services:
+  app:
+    image: nginx
+    networks:
+      - appnet
+networks:
+  appnet:
+    ipam:
+      driver: custom
+YAML
+if (cd "$bad_ipam_driver_dir" && "$binary" up --dry-run >/tmp/apple-compose-bad-ipam-driver.out 2>&1); then
+  echo "expected strict up to reject custom IPAM drivers" >&2
+  exit 1
+fi
+grep -F "networks.appnet.ipam: driver" /tmp/apple-compose-bad-ipam-driver.out >/dev/null
+grep -F "Custom IPAM drivers are not exposed" /tmp/apple-compose-bad-ipam-driver.out >/dev/null
+
 ipam_options_dir="$tmpdir/ipam-options"
 mkdir -p "$ipam_options_dir"
 cat > "$ipam_options_dir/compose.yaml" <<'YAML'
