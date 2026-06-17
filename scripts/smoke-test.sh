@@ -1919,7 +1919,6 @@ services:
     driver_opts: {}
     develop: {}
     blkio_config: {}
-    cgroup: ""
     cgroup_parent: ""
     domainname: ""
     external_links: []
@@ -1974,6 +1973,40 @@ grep -F "whitespace_scalars-web-1" <<<"$whitespace_scalars_plan" >/dev/null
 grep -F -- "--runtime '   '" <<<"$whitespace_scalars_plan" >/dev/null
 grep -F -- "--user '   '" <<<"$whitespace_scalars_plan" >/dev/null
 grep -F -- "--workdir '   '" <<<"$whitespace_scalars_plan" >/dev/null
+
+bad_null_service_scalar_dir="$tmpdir/bad-null-service-scalar"
+mkdir -p "$bad_null_service_scalar_dir"
+for scalar_key in container_name cgroup cgroup_parent cpuset domainname hostname ipc isolation mac_address network_mode pid platform restart runtime user userns_mode uts working_dir stop_signal; do
+  cat > "$bad_null_service_scalar_dir/compose.yaml" <<YAML
+services:
+  web:
+    image: nginx
+    $scalar_key:
+YAML
+  if (cd "$bad_null_service_scalar_dir" && "$binary" config >/tmp/apple-compose-bad-null-service-scalar.out 2>&1); then
+    echo "expected null service scalar '$scalar_key' to be rejected" >&2
+    exit 1
+  fi
+  if [ "$scalar_key" = "user" ]; then
+    grep -F "Service 'web' user must be a string or integer value" /tmp/apple-compose-bad-null-service-scalar.out >/dev/null
+  else
+    grep -F "Service 'web' $scalar_key must be a string" /tmp/apple-compose-bad-null-service-scalar.out >/dev/null
+  fi
+done
+
+bad_cgroup_empty_dir="$tmpdir/bad-cgroup-empty"
+mkdir -p "$bad_cgroup_empty_dir"
+cat > "$bad_cgroup_empty_dir/compose.yaml" <<'YAML'
+services:
+  web:
+    image: nginx
+    cgroup: ""
+YAML
+if (cd "$bad_cgroup_empty_dir" && "$binary" config >/tmp/apple-compose-bad-cgroup-empty.out 2>&1); then
+  echo "expected empty cgroup namespace mode to be rejected" >&2
+  exit 1
+fi
+grep -F "Service 'web' cgroup must be one of: host, private" /tmp/apple-compose-bad-cgroup-empty.out >/dev/null
 
 empty_build_string_dir="$tmpdir/empty-build-string"
 mkdir -p "$empty_build_string_dir"

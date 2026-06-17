@@ -799,7 +799,7 @@ struct ComposeParser {
             let serviceScale = try parseOptionalInt(serviceMap["scale"], location: "Service '\(name)' scale")
             let deployReplicas = try parseOptionalInt(deploy?["replicas"], location: "Service '\(name)' deploy.replicas")
             let replicas = serviceScale ?? deployReplicas ?? 1
-            let containerName = try parseOptionalString(serviceMap["container_name"], location: "Service '\(name)' container_name")
+            let containerName = try parseOptionalStringValue(serviceMap["container_name"], location: "Service '\(name)' container_name")
             if let serviceScale, serviceScale < 0 {
                 throw ComposeError.invalidCompose("Service '\(name)' scale must be zero or a positive integer")
             }
@@ -1892,18 +1892,18 @@ struct ComposeParser {
         _ = try parseVolumesFrom(serviceMap["volumes_from"], serviceName: serviceName)
         try parseDeviceCgroupRules(serviceMap["device_cgroup_rules"], serviceName: serviceName)
         for key in ["cgroup_parent", "isolation", "userns_mode"] {
-            _ = try parseOptionalUnsettableString(serviceMap[key], location: "Service '\(serviceName)' \(key)")
+            _ = try parseOptionalUnsettableStringValue(serviceMap[key], location: "Service '\(serviceName)' \(key)")
         }
-        _ = try parseOptionalString(serviceMap["cpuset"], location: "Service '\(serviceName)' cpuset", allowEmpty: true)
+        _ = try parseOptionalUnsettableStringValue(serviceMap["cpuset"], location: "Service '\(serviceName)' cpuset")
         try parsePIDMode(serviceMap["pid"], serviceName: serviceName)
         try parseIPCMode(serviceMap["ipc"], serviceName: serviceName)
-        if let cgroup = try parseOptionalUnsettableString(serviceMap["cgroup"], location: "Service '\(serviceName)' cgroup") {
+        if let cgroup = try parseOptionalStringValue(serviceMap["cgroup"], location: "Service '\(serviceName)' cgroup") {
             let normalized = cgroup.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             guard ["host", "private"].contains(normalized) else {
                 throw ComposeError.invalidCompose("Service '\(serviceName)' cgroup must be one of: host, private")
             }
         }
-        _ = try parseOptionalUnsettableString(serviceMap["uts"], location: "Service '\(serviceName)' uts")
+        _ = try parseOptionalUnsettableStringValue(serviceMap["uts"], location: "Service '\(serviceName)' uts")
         try parseHostname(serviceMap["hostname"], serviceName: serviceName)
         if let cpuPercent = try parseOptionalInt(serviceMap["cpu_percent"], location: "Service '\(serviceName)' cpu_percent"),
            !(0...100).contains(cpuPercent) {
@@ -2519,9 +2519,6 @@ struct ComposeParser {
 
     private func parseRestartPolicy(_ node: YAMLValue?, serviceName: String) throws -> String? {
         guard let node else { return nil }
-        if case .null = node {
-            return nil
-        }
         let location = "Service '\(serviceName)' restart"
         switch node {
         case .string(let value):
@@ -2566,7 +2563,7 @@ struct ComposeParser {
     }
 
     private func parseIPCMode(_ node: YAMLValue?, serviceName: String) throws {
-        guard let value = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' ipc") else {
+        guard let value = try parseOptionalUnsettableStringValue(node, location: "Service '\(serviceName)' ipc") else {
             return
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2584,7 +2581,7 @@ struct ComposeParser {
     }
 
     private func parsePIDMode(_ node: YAMLValue?, serviceName: String) throws {
-        guard let value = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' pid") else {
+        guard let value = try parseOptionalUnsettableStringValue(node, location: "Service '\(serviceName)' pid") else {
             return
         }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2598,15 +2595,15 @@ struct ComposeParser {
     }
 
     private func parseDomainName(_ node: YAMLValue?, serviceName: String) throws -> String? {
-        try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' domainname")
+        try parseOptionalUnsettableStringValue(node, location: "Service '\(serviceName)' domainname")
     }
 
     private func parseHostname(_ node: YAMLValue?, serviceName: String) throws {
-        _ = try parseOptionalUnsettableString(node, location: "Service '\(serviceName)' hostname")
+        _ = try parseOptionalUnsettableStringValue(node, location: "Service '\(serviceName)' hostname")
     }
 
     private func parseMACAddress(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let macAddress = try parseOptionalUnsettableString(node, location: location) else {
+        guard let macAddress = try parseOptionalUnsettableStringValue(node, location: location) else {
             return nil
         }
         guard isValidMACAddress(macAddress) else {
@@ -2699,7 +2696,7 @@ struct ComposeParser {
     }
 
     private func parsePlatform(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let platform = try parseOptionalUnsettableString(node, location: location) else {
+        guard let platform = try parseOptionalUnsettableStringValue(node, location: location) else {
             return nil
         }
         guard isValidComposePlatform(platform) else {
@@ -3265,7 +3262,7 @@ struct ComposeParser {
     }
 
     private func parseOptionalExactNonEmptyString(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let value = try parseOptionalString(node, location: location, allowEmpty: true) else {
+        guard let value = try parseOptionalStringValue(node, location: location) else {
             return nil
         }
         return value.isEmpty ? nil : value
@@ -3273,6 +3270,13 @@ struct ComposeParser {
 
     private func parseOptionalUnsettableString(_ node: YAMLValue?, location: String) throws -> String? {
         guard let value = try parseOptionalString(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+    }
+
+    private func parseOptionalUnsettableStringValue(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalStringValue(node, location: location) else {
             return nil
         }
         return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
@@ -3311,6 +3315,15 @@ struct ComposeParser {
         if case .null = node {
             return nil
         }
+        return try parseRequiredStringOrIntValue(node, location: location, allowEmpty: allowEmpty)
+    }
+
+    private func parseOptionalStringOrIntValue(_ node: YAMLValue?, location: String, allowEmpty: Bool = false) throws -> String? {
+        guard let node else { return nil }
+        return try parseRequiredStringOrIntValue(node, location: location, allowEmpty: allowEmpty)
+    }
+
+    private func parseRequiredStringOrIntValue(_ node: YAMLValue, location: String, allowEmpty: Bool = false) throws -> String {
         switch node {
         case .string(let value):
             if !allowEmpty && value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -3320,7 +3333,7 @@ struct ComposeParser {
         case .int(let value, _):
             return String(value)
         case .reset(let value), .overrideValue(let value):
-            return try parseOptionalStringOrInt(value, location: location, allowEmpty: allowEmpty)
+            return try parseRequiredStringOrIntValue(value, location: location, allowEmpty: allowEmpty)
         default:
             throw ComposeError.invalidCompose("\(location) must be a string or integer value")
         }
@@ -3334,7 +3347,7 @@ struct ComposeParser {
     }
 
     private func parseOptionalExactNonEmptyStringOrInt(_ node: YAMLValue?, location: String) throws -> String? {
-        guard let value = try parseOptionalStringOrInt(node, location: location, allowEmpty: true) else {
+        guard let value = try parseOptionalStringOrIntValue(node, location: location, allowEmpty: true) else {
             return nil
         }
         return value.isEmpty ? nil : value
