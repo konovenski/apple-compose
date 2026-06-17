@@ -1886,6 +1886,23 @@ for empty_flag in "--dns-domain" "--file" "--platform" "--runtime" "--target" "-
   fi
 done
 
+whitespace_scalars_dir="$tmpdir/whitespace-scalars"
+mkdir -p "$whitespace_scalars_dir"
+cat > "$whitespace_scalars_dir/compose.yaml" <<'YAML'
+name: whitespace_scalars
+services:
+  web:
+    image: nginx
+    runtime: "   "
+    user: "   "
+    working_dir: "   "
+YAML
+whitespace_scalars_plan="$(cd "$whitespace_scalars_dir" && "$binary" plan)"
+grep -F "whitespace_scalars-web-1" <<<"$whitespace_scalars_plan" >/dev/null
+grep -F -- "--runtime '   '" <<<"$whitespace_scalars_plan" >/dev/null
+grep -F -- "--user '   '" <<<"$whitespace_scalars_plan" >/dev/null
+grep -F -- "--workdir '   '" <<<"$whitespace_scalars_plan" >/dev/null
+
 empty_build_string_dir="$tmpdir/empty-build-string"
 mkdir -p "$empty_build_string_dir"
 cat > "$empty_build_string_dir/compose.yaml" <<'YAML'

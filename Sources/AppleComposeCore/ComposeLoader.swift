@@ -886,10 +886,10 @@ struct ComposeParser {
                 networkMode: networkMode,
                 command: try parseCommand(serviceMap["command"], location: "Service '\(name)' command"),
                 entrypoint: try parseCommand(serviceMap["entrypoint"], location: "Service '\(name)' entrypoint"),
-                workingDir: try parseOptionalUnsettableString(serviceMap["working_dir"], location: "Service '\(name)' working_dir"),
-                user: try parseOptionalUnsettableStringOrInt(serviceMap["user"], location: "Service '\(name)' user"),
+                workingDir: try parseOptionalExactNonEmptyString(serviceMap["working_dir"], location: "Service '\(name)' working_dir"),
+                user: try parseOptionalExactNonEmptyStringOrInt(serviceMap["user"], location: "Service '\(name)' user"),
                 platform: try parsePlatform(serviceMap["platform"], location: "Service '\(name)' platform"),
-                runtime: try parseOptionalUnsettableString(serviceMap["runtime"], location: "Service '\(name)' runtime"),
+                runtime: try parseOptionalExactNonEmptyString(serviceMap["runtime"], location: "Service '\(name)' runtime"),
                 macAddress: macAddress,
                 cpus: serviceCPUs ?? serviceCPUCount ?? deployCPUs,
                 memory: serviceMemory ?? deployMemory,
@@ -3302,6 +3302,13 @@ struct ComposeParser {
             return nil
         }
         return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+    }
+
+    private func parseOptionalExactNonEmptyStringOrInt(_ node: YAMLValue?, location: String) throws -> String? {
+        guard let value = try parseOptionalStringOrInt(node, location: location, allowEmpty: true) else {
+            return nil
+        }
+        return value.isEmpty ? nil : value
     }
 
     private func parseOptionalPermissionMode(_ node: YAMLValue?, location: String, allowEmpty: Bool = false) throws -> String? {
