@@ -10410,6 +10410,9 @@ services:
       context: .
       ssh:
         - default
+        - myproject=
+        - =/tmp/key
+        - "="
         - myproject=~/.ssh/myproject.pem
 YAML
 if (cd "$build_ssh_list_dir" && "$binary" up --dry-run >/tmp/apple-compose-build-ssh-list.out 2>&1); then
@@ -10429,6 +10432,7 @@ services:
       context: .
       ssh:
         default:
+        agent:
         myproject: ~/.ssh/myproject.pem
 YAML
 if (cd "$build_ssh_map_dir" && "$binary" up --dry-run >/tmp/apple-compose-build-ssh-map.out 2>&1); then
@@ -10447,7 +10451,7 @@ services:
     build:
       context: .
       ssh:
-        - myproject=
+        - myproject
 YAML
 if (cd "$bad_build_ssh_syntax_dir" && "$binary" config >/tmp/apple-compose-bad-build-ssh-syntax.out 2>&1); then
   echo "expected malformed build.ssh syntax to be rejected" >&2
@@ -10455,22 +10459,22 @@ if (cd "$bad_build_ssh_syntax_dir" && "$binary" config >/tmp/apple-compose-bad-b
 fi
 grep -F "build.ssh[0] must be 'default' or use ID=path syntax" /tmp/apple-compose-bad-build-ssh-syntax.out >/dev/null
 
-bad_build_ssh_map_value_dir="$tmpdir/bad-build-ssh-map-value"
-mkdir -p "$bad_build_ssh_map_value_dir"
-cat > "$bad_build_ssh_map_value_dir/compose.yaml" <<'YAML'
+bad_build_ssh_map_key_dir="$tmpdir/bad-build-ssh-map-key"
+mkdir -p "$bad_build_ssh_map_key_dir"
+cat > "$bad_build_ssh_map_key_dir/compose.yaml" <<'YAML'
 services:
   web:
     image: example/web
     build:
       context: .
       ssh:
-        myproject:
+        "": ~/.ssh/myproject.pem
 YAML
-if (cd "$bad_build_ssh_map_value_dir" && "$binary" config >/tmp/apple-compose-bad-build-ssh-map-value.out 2>&1); then
-  echo "expected build.ssh map entries without non-default paths to be rejected" >&2
+if (cd "$bad_build_ssh_map_key_dir" && "$binary" config >/tmp/apple-compose-bad-build-ssh-map-key.out 2>&1); then
+  echo "expected build.ssh map entries with empty keys to be rejected" >&2
   exit 1
 fi
-grep -F "build.ssh.myproject must be a non-empty SSH key path" /tmp/apple-compose-bad-build-ssh-map-value.out >/dev/null
+grep -F "build.ssh keys must be non-empty SSH IDs" /tmp/apple-compose-bad-build-ssh-map-key.out >/dev/null
 
 bad_build_ssh_shape_dir="$tmpdir/bad-build-ssh-shape"
 mkdir -p "$bad_build_ssh_shape_dir"

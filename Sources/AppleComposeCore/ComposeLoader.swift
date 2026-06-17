@@ -1003,17 +1003,10 @@ struct ComposeParser {
         if let map = node.map {
             for (id, value) in map.sorted(by: { $0.key < $1.key }) {
                 let trimmedID = id.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedID.isEmpty, !trimmedID.contains("=") else {
+                guard !trimmedID.isEmpty else {
                     throw ComposeError.invalidCompose("\(location) keys must be non-empty SSH IDs")
                 }
-                let path = try parseOptionalBuildSSHMapValue(value, location: "\(location).\(id)")?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if path?.isEmpty == false {
-                    continue
-                }
-                guard trimmedID == "default" else {
-                    throw ComposeError.invalidCompose("\(location).\(id) must be a non-empty SSH key path")
-                }
+                _ = try parseOptionalBuildSSHMapValue(value, location: "\(location).\(id)")
             }
             return
         }
@@ -1028,9 +1021,7 @@ struct ComposeParser {
                 continue
             }
             let parts = trimmed.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
-            guard parts.count == 2,
-                  !parts[0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  !parts[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard parts.count == 2 else {
                 throw ComposeError.invalidCompose("\(itemLocation) must be 'default' or use ID=path syntax")
             }
         }
